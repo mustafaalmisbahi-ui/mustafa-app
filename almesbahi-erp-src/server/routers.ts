@@ -345,12 +345,28 @@ export const appRouter = router({
       });
       return { id };
     }),
-    updateRole: protectedProcedure.input(z.object({
+    updateRole: adminProcedure.input(z.object({
       userId: z.number(),
       role: z.enum(["admin", "sales", "production", "designer", "technician", "user"]),
     })).mutation(async ({ input, ctx }) => {
       await db.updateUserRole(input.userId, input.role);
       await db.logActivity({ userId: ctx.user.id, action: "update_role", entity: "user", entityId: input.userId });
+      return { success: true };
+    }),
+    updateStatus: adminProcedure.input(z.object({
+      userId: z.number(),
+      isActive: z.boolean(),
+    })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.id === input.userId && !input.isActive) {
+        throw new Error("لا يمكنك تعطيل حسابك الحالي");
+      }
+      await db.setUserActive(input.userId, input.isActive);
+      await db.logActivity({
+        userId: ctx.user.id,
+        action: input.isActive ? "activate_user" : "deactivate_user",
+        entity: "user",
+        entityId: input.userId,
+      });
       return { success: true };
     }),
     tasks: protectedProcedure.input(z.object({ employeeId: z.number().optional() }).optional()).query(async ({ input }) => {

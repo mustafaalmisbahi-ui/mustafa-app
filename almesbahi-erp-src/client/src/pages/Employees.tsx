@@ -8,14 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Users, ClipboardList, BarChart3, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { ROLE_LABELS, TASK_STATUS_LABELS, TASK_STATUS_COLORS } from "@shared/constants";
 import { TRPCClientErrorLike } from "@trpc/client";
 import { AppRouter } from "../../../server/routers";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Employees() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showEvalDialog, setShowEvalDialog] = useState(false);
   const [showUserDialog, setShowUserDialog] = useState(false);
@@ -27,6 +31,10 @@ export default function Employees() {
 
   const updateRole = trpc.employees.updateRole.useMutation({
     onSuccess: () => { utils.employees.list.invalidate(); toast.success("تم تحديث الدور"); },
+    onError: (err) => toast.error(err.message),
+  });
+  const updateStatus = trpc.employees.updateStatus.useMutation({
+    onSuccess: () => { utils.employees.list.invalidate(); toast.success("تم تحديث حالة المستخدم"); },
     onError: (err) => toast.error(err.message),
   });
 
@@ -73,7 +81,7 @@ export default function Employees() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 flex-1 sm:flex-none">
+              <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" disabled={!isAdmin}>
                 <UserPlus className="w-4 h-4" />
                 إضافة مستخدم
               </Button>
@@ -132,6 +140,10 @@ export default function Employees() {
                       toast.error("يرجى إدخال البريد الإلكتروني");
                       return;
                     }
+                    if (!isAdmin) {
+                      toast.error("فقط المدير العام يمكنه إضافة المستخدمين");
+                      return;
+                    }
                     inviteUser.mutate({
                       email: userForm.email,
                       name: userForm.name || undefined,
@@ -146,6 +158,9 @@ export default function Employees() {
               </div>
             </DialogContent>
           </Dialog>
+          {!isAdmin && (
+            <p className="text-xs text-muted-foreground">إضافة المستخدمين متاحة للمدير العام فقط</p>
+          )}
           <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none"><ClipboardList className="w-4 h-4" />مهمة جديدة</Button>
@@ -255,7 +270,14 @@ export default function Employees() {
                     <div className="flex items-center justify-between">
                       <Select
                         value={emp.role || "user"}
-                        onValueChange={(v: any) => updateRole.mutate({ userId: emp.id, role: v })}
+                        onValueChange={(v: any) => {
+                          if (!isAdmin) {
+                            toast.error("فقط المدير العام يمكنه تعديل الأدوار");
+                            return;
+                          }
+                          updateRole.mutate({ userId: emp.id, role: v });
+                        }}
+                        disabled={!isAdmin}
                       >
                         <SelectTrigger className="h-7 text-xs w-auto">
                           <SelectValue />
@@ -266,9 +288,25 @@ export default function Employees() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <span className="text-xs text-muted-foreground">
-                        {emp.lastSignedIn ? new Date(emp.lastSignedIn).toLocaleDateString("ar-SA") : "-"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={emp.isActive ?? true}
+                          onCheckedChange={(checked) => {
+                            if (!isAdmin) {
+                              toast.error("فقط المدير العام يمكنه تعديل الحالة");
+                              return;
+                            }
+                            updateStatus.mutate({ userId: emp.id, isActive: checked });
+                          }}
+                          disabled={!isAdmin || updateStatus.isPending}
+                        />
+                        <span className="text-[11px] text-muted-foreground">
+                          {emp.isActive ? "نشط" : "معطل"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {emp.lastSignedIn ? new Date(emp.lastSignedIn).toLocaleDateString("ar-SA") : "-"}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

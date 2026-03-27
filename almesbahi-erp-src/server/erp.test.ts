@@ -63,6 +63,7 @@ vi.mock("./db", () => {
     ]),
     createInvitedUser: vi.fn().mockResolvedValue(2),
     updateUserRole: vi.fn().mockResolvedValue(undefined),
+    setUserActive: vi.fn().mockResolvedValue(undefined),
     getEmployeeTasks: vi.fn().mockResolvedValue([]),
     createEmployeeTask: vi.fn().mockResolvedValue(1),
     updateEmployeeTask: vi.fn().mockResolvedValue(undefined),
@@ -369,6 +370,12 @@ describe("Employees", () => {
   it("updates employee role", async () => {
     const caller = appRouter.createCaller(createAuthContext());
     const result = await caller.employees.updateRole({ userId: 1, role: "production" });
+    expect(result.success).toBe(true);
+  });
+
+  it("updates employee active status", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+    const result = await caller.employees.updateStatus({ userId: 2, isActive: false });
     expect(result.success).toBe(true);
   });
 
