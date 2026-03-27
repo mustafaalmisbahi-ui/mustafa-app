@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}النظام المحاسبي{% endblock %}</title>
+    <title>{% block title %}دفتر الحسابات المنتظم{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <header class="site-header">
         <div class="container">
-            <h1>النظام المحاسبي</h1>
+            <h1>دفتر الحسابات المنتظم</h1>
             <nav class="main-nav">
                 <a href="{{ url_for('web.dashboard') }}" class="{% if request.endpoint == 'web.dashboard' %}active{% endif %}">لوحة التحكم</a>
                 <a href="{{ url_for('web.sales') }}" class="{% if request.endpoint == 'web.sales' %}active{% endif %}">المبيعات</a>
@@ -36,7 +36,7 @@
 
     <footer class="site-footer">
         <div class="container">
-            <span>Flask Accounting Arabic RTL</span> - <span id="current-year"></span>
+            <span>دفتر الحسابات المنتظم</span> - <span id="current-year"></span>
         </div>
     </footer>
 
