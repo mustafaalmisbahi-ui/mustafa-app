@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}المبيعات{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>إضافة عملية بيع</h2>
+  <form method="post" action="{{ url_for('web.sales') }}" class="form-grid">
+    <label>
+      اسم العميل
+      <input type="text" name="customer_name" required />
+    </label>
+    <label>
+      وصف
+      <input type="text" name="description" placeholder="مثال: بيع مواد غذائية" />
+    </label>
+    <label>
+      القيمة الإجمالية
+      <input type="number" step="0.01" min="0" name="amount" required />
+    </label>
+    <label>
+      المبلغ المدفوع
+      <input type="number" step="0.01" min="0" name="paid_amount" value="0" />
+    </label>
+    <button type="submit">حفظ عملية البيع</button>
+  </form>
+</section>
+
+<section class="page-actions">
+  <a class="btn" href="{{ url_for('web.export_sales_csv') }}">تصدير CSV</a>
+</section>
+
+<section class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>العميل</th>
+        <th>الوصف</th>
+        <th>الإجمالي</th>
+        <th>المدفوع</th>
+        <th>المتبقي</th>
+        <th>التاريخ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sale in sales %}
+      <tr>
+        <td>{{ sale.id }}</td>
+        <td>{{ sale.customer_name }}</td>
+        <td>{{ sale.description or "-" }}</td>
+        <td>{{ "%.2f"|format(sale.amount) }}</td>
+        <td>{{ "%.2f"|format(sale.paid_amount) }}</td>
+        <td>{{ "%.2f"|format(sale.remaining) }}</td>
+        <td>{{ sale.created_at.strftime("%Y-%m-%d") }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="note">لا توجد عمليات بيع حتى الآن.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

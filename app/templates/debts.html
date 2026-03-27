@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}الديون{% endblock %}
+{% block content %}
+<section class="card mb-2">
+    <h2>إضافة دين</h2>
+    <form method="post" action="{{ url_for('web.debts') }}" class="form-grid">
+        <label>
+            الاسم
+            <input type="text" name="party_name" required>
+        </label>
+        <label>
+            النوع
+            <select name="party_type" required>
+                <option value="customer">عميل</option>
+                <option value="supplier">مورد</option>
+            </select>
+        </label>
+        <label>
+            المبلغ الإجمالي
+            <input type="number" name="total_amount" min="0" step="0.01" required>
+        </label>
+        <label>
+            المدفوع
+            <input type="number" name="paid_amount" min="0" step="0.01" value="0">
+        </label>
+        <label class="full-width">
+            ملاحظات
+            <input type="text" name="note" placeholder="اختياري">
+        </label>
+        <button type="submit" class="btn">إضافة الدين</button>
+    </form>
+</section>
+
+<section class="card">
+    <div class="table-header">
+        <h2>سجل الديون</h2>
+        <a class="btn btn-secondary" href="{{ url_for('web.export_debts_csv') }}">تصدير CSV</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>النوع</th>
+                    <th>الإجمالي</th>
+                    <th>المدفوع</th>
+                    <th>المتبقي</th>
+                    <th>التاريخ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for debt in debts %}
+                <tr>
+                    <td>{{ debt.party_name }}</td>
+                    <td>{{ "عميل" if debt.party_type == "customer" else "مورد" }}</td>
+                    <td>{{ "%.2f"|format(debt.total_amount) }}</td>
+                    <td>{{ "%.2f"|format(debt.paid_amount) }}</td>
+                    <td>{{ "%.2f"|format(debt.remaining) }}</td>
+                    <td>{{ debt.created_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">لا توجد ديون حتى الآن.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

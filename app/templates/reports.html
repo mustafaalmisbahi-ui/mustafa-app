@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}التقارير{% endblock %}
+{% block content %}
+<section class="section-header">
+  <h1>التقارير والتصدير</h1>
+  <p>يمكنك تصدير البيانات بصيغة CSV أو طباعة الملخص.</p>
+</section>
+
+<section class="page-actions">
+  <a class="btn" href="{{ url_for('web.export_sales_csv') }}">تصدير المبيعات (CSV)</a>
+  <a class="btn" href="{{ url_for('web.export_purchases_csv') }}">تصدير المشتريات (CSV)</a>
+  <a class="btn" href="{{ url_for('web.export_debts_csv') }}">تصدير الديون (CSV)</a>
+  <a class="btn" href="{{ url_for('web.export_dashboard_csv') }}">تصدير الملخص (CSV)</a>
+</section>
+
+<section class="form-section" id="summary-report">
+  <h2>ملخص الحسابات</h2>
+  <p><strong>إجمالي المبيعات:</strong> {{ "{:,.2f}".format(metrics.total_sales) }}</p>
+  <p><strong>إجمالي المشتريات:</strong> {{ "{:,.2f}".format(metrics.total_purchases) }}</p>
+  <p><strong>صافي الربح/الخسارة:</strong> {{ "{:,.2f}".format(metrics.net_profit) }}</p>
+  <p><strong>إجمالي ديون العملاء:</strong> {{ "{:,.2f}".format(metrics.customer_debts) }}</p>
+  <p><strong>إجمالي ديون الموردين:</strong> {{ "{:,.2f}".format(metrics.supplier_debts) }}</p>
+  <button type="button" class="btn" onclick="window.print()">طباعة التقرير</button>
+</section>
+{% endblock %}

@@ -1,0 +1,276 @@
+:root {
+    --bg: #f4f7fc;
+    --card: #ffffff;
+    --border: #dbe1ee;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-dark: #1e4fc7;
+    --success: #15803d;
+    --danger: #b91c1c;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Tahoma, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.topbar {
+    background: var(--primary);
+    color: #ffffff;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.topbar h1 {
+    margin: 0 0 0.75rem;
+    font-size: 1.5rem;
+}
+
+.topbar nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.topbar a {
+    color: #ffffff;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.4rem;
+    font-size: 0.92rem;
+}
+
+.container {
+    width: min(1100px, 94%);
+    margin: 1.25rem auto;
+}
+
+.page-header h2 {
+    margin: 0 0 0.5rem;
+}
+
+.page-header p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.cards-4 {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.cards-2 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.mt-2 {
+    margin-top: 1rem;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    padding: 1rem;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+}
+
+.card h3,
+.card h2 {
+    margin-top: 0;
+}
+
+.metric {
+    font-size: 1.45rem;
+    font-weight: 700;
+    margin: 0.4rem 0 0;
+}
+
+.metric.positive {
+    color: var(--success);
+}
+
+.metric.negative {
+    color: var(--danger);
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.list {
+    margin: 0;
+    padding-right: 1rem;
+}
+
+.table-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    padding: 0.62rem;
+    white-space: nowrap;
+    font-size: 0.92rem;
+}
+
+thead th {
+    background: #eef2fb;
+}
+
+.empty-state {
+    color: var(--muted);
+    text-align: center;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.8rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+label {
+    font-size: 0.9rem;
+}
+
+input,
+select,
+button {
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+input,
+select {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.45rem;
+    padding: 0.5rem 0.6rem;
+}
+
+.btn,
+button {
+    border: none;
+    border-radius: 0.45rem;
+    padding: 0.5rem 0.8rem;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.btn-primary,
+button[type="submit"] {
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-primary:hover,
+button[type="submit"]:hover {
+    background: var(--primary-dark);
+}
+
+.btn-light {
+    background: #eef2ff;
+    color: #1e3a8a;
+}
+
+.btn-light:hover {
+    background: #dbe6ff;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.btn-secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.btn-secondary:hover {
+    background: #d1d5db;
+}
+
+.alerts {
+    margin-bottom: 1rem;
+}
+
+.alert {
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.45rem;
+    margin-bottom: 0.5rem;
+}
+
+.alert.success {
+    background: #dcfce7;
+    color: #14532d;
+}
+
+.alert.error {
+    background: #fee2e2;
+    color: #7f1d1d;
+}
+
+.footer {
+    text-align: center;
+    color: var(--muted);
+    padding: 0.5rem 0 1rem;
+}
+
+@media print {
+    .topbar,
+    .footer,
+    .actions,
+    .btn,
+    button {
+        display: none !important;
+    }
+
+    body {
+        background: #ffffff;
+    }
+
+    .card,
+    .container {
+        border: 0;
+        box-shadow: none;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+}

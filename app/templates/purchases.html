@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}المشتريات{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>إضافة عملية شراء</h2>
+    <form method="post" action="{{ url_for('web.purchases') }}" class="form-grid">
+        <div class="form-group">
+            <label for="supplier_name">اسم المورد</label>
+            <input id="supplier_name" name="supplier_name" type="text" required>
+        </div>
+        <div class="form-group">
+            <label for="description">وصف العملية</label>
+            <input id="description" name="description" type="text" placeholder="مثل: شراء مواد خام">
+        </div>
+        <div class="form-group">
+            <label for="amount">المبلغ الإجمالي</label>
+            <input id="amount" name="amount" type="number" step="0.01" min="0" required>
+        </div>
+        <div class="form-group">
+            <label for="paid_amount">المبلغ المدفوع</label>
+            <input id="paid_amount" name="paid_amount" type="number" step="0.01" min="0" value="0">
+        </div>
+        <button type="submit" class="btn">حفظ</button>
+    </form>
+</section>
+
+<section class="card">
+    <div class="table-actions">
+        <h2>سجل المشتريات</h2>
+        <a class="btn btn-light" href="{{ url_for('web.export_purchases_csv') }}">تصدير CSV</a>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>المورد</th>
+                    <th>الوصف</th>
+                    <th>الإجمالي</th>
+                    <th>المدفوع</th>
+                    <th>المتبقي</th>
+                    <th>التاريخ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in purchases %}
+                <tr>
+                    <td>{{ purchase.supplier_name }}</td>
+                    <td>{{ purchase.description or "-" }}</td>
+                    <td>{{ "%.2f"|format(purchase.amount) }}</td>
+                    <td>{{ "%.2f"|format(purchase.paid_amount) }}</td>
+                    <td>{{ "%.2f"|format(purchase.remaining) }}</td>
+                    <td>{{ purchase.created_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty-state">لا توجد بيانات مشتريات حتى الآن.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

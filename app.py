@@ -1,12 +1,6 @@
-from flask import Flask
+from app import create_app
 
-# Initialize the Flask application
-app = Flask(__name__)
+app = create_app()
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Run the development server
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
