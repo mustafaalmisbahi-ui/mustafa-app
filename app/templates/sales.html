@@ -3,6 +3,15 @@
 {% block title %}المبيعات{% endblock %}
 
 {% block content %}
+<section class="page-actions">
+  <a
+    class="btn btn-light"
+    href="{{ url_for('web.sales', show_settled=0 if show_settled else 1) }}"
+  >
+    {% if show_settled %}إخفاء العمليات المسددة بالكامل{% else %}إظهار العمليات المسددة بالكامل{% endif %}
+  </a>
+</section>
+
 <section class="panel">
   <h2>إضافة عملية بيع</h2>
   <form method="post" action="{{ url_for('web.sales') }}" class="form-grid">

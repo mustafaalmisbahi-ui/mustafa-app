@@ -26,10 +26,19 @@
     </form>
 </section>
 
+<section class="page-actions">
+    <form method="get" action="{{ url_for('web.purchases') }}" class="toggle-inline">
+        <input type="hidden" name="show_settled" value="{% if show_settled %}0{% else %}1{% endif %}">
+        <button type="submit" class="btn btn-light">
+            {% if show_settled %}إخفاء العمليات المسددة بالكامل{% else %}إظهار العمليات المسددة بالكامل{% endif %}
+        </button>
+    </form>
+    <a class="btn btn-light" href="{{ url_for('web.export_purchases_csv') }}">تصدير CSV</a>
+</section>
+
 <section class="card">
     <div class="table-actions">
-        <h2>سجل المشتريات</h2>
-        <a class="btn btn-light" href="{{ url_for('web.export_purchases_csv') }}">تصدير CSV</a>
+        <h2>سجل المشتريات {% if not show_settled %}(غير المسددة فقط){% endif %}</h2>
     </div>
     <div class="table-wrapper">
         <table>
@@ -55,7 +64,13 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="empty-state">لا توجد بيانات مشتريات حتى الآن.</td>
+                    <td colspan="6" class="empty-state">
+                        {% if show_settled %}
+                        لا توجد بيانات مشتريات حتى الآن.
+                        {% else %}
+                        لا توجد عمليات مشتريات غير مسددة.
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -16,11 +16,18 @@
 
 <section class="form-section">
   <h2>استرجاع نسخة احتياطية</h2>
-  <p class="note">يمكنك استرجاع نسخة JSON تم تصديرها سابقًا (سيتم استبدال البيانات الحالية).</p>
+  <p class="note">قبل الاسترجاع، سيقوم النظام بحفظ نسخة تلقائية لحماية بياناتك الحالية.</p>
   <form method="post" action="{{ url_for('web.import_backup_json') }}" enctype="multipart/form-data" class="form-grid">
     <label>
       ملف النسخة الاحتياطية
       <input type="file" name="backup_file" accept=".json,application/json" required>
+    </label>
+    <label>
+      وضع الاستيراد
+      <select name="import_mode">
+        <option value="append">إضافة على البيانات الحالية</option>
+        <option value="replace">استبدال كامل للبيانات الحالية</option>
+      </select>
     </label>
     <button type="submit">استرجاع النسخة</button>
   </form>

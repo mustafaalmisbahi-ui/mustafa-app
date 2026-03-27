@@ -2,8 +2,9 @@ import csv
 import json
 from datetime import datetime, time
 from io import StringIO
+from pathlib import Path
 
-from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 from sqlalchemy import or_
 
 from app.extensions import db
@@ -32,6 +33,37 @@ def _parse_date(value: str | None):
 def _parse_datetime(value: str | None) -> datetime:
     if not value:
         return datetime.utcnow()
+
+
+def _parse_bool(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_sort(value: str | None) -> str:
+    allowed = {
+        "date_desc",
+        "date_asc",
+        "amount_desc",
+        "amount_asc",
+        "remaining_desc",
+        "remaining_asc",
+    }
+    selected = (value or "date_desc").strip().lower()
+    return selected if selected in allowed else "date_desc"
+
+
+def _apply_sort(query, model, sort_key: str, remaining_expr):
+    if sort_key == "date_asc":
+        return query.order_by(model.created_at.asc())
+    if sort_key == "amount_desc":
+        return query.order_by(model.amount.desc(), model.created_at.desc())
+    if sort_key == "amount_asc":
+        return query.order_by(model.amount.asc(), model.created_at.desc())
+    if sort_key == "remaining_desc":
+        return query.order_by(remaining_expr.desc(), model.created_at.desc())
+    if sort_key == "remaining_asc":
+        return query.order_by(remaining_expr.asc(), model.created_at.desc())
+    return query.order_by(model.created_at.desc())
     try:
         return datetime.fromisoformat(value)
     except ValueError:
@@ -76,8 +108,17 @@ def sales():
         flash("تمت إضافة عملية البيع بنجاح.", "success")
         return redirect(url_for("web.sales"))
 
-    sales_rows = Sale.query.order_by(Sale.created_at.desc()).all()
-    return render_template("sales.html", sales=sales_rows)
+    include_settled = _parse_bool(request.args.get("include_settled"))
+    sort_key = _normalize_sort(request.args.get("sort"))
+    sales_query = Sale.query
+    if not include_settled:
+        sales_query = sales_query.filter(Sale.amount > Sale.paid_amount)
+    sales_rows = _apply_sort(sales_query, Sale, sort_key, Sale.amount - Sale.paid_amount).all()
+    return render_template(
+        "sales.html",
+        sales=sales_rows,
+        filters={"include_settled": include_settled, "sort": sort_key},
+    )
 
 
 @web_bp.route("/purchases", methods=["GET", "POST"])
@@ -103,8 +144,19 @@ def purchases():
         flash("تمت إضافة عملية الشراء بنجاح.", "success")
         return redirect(url_for("web.purchases"))
 
-    purchase_rows = Purchase.query.order_by(Purchase.created_at.desc()).all()
-    return render_template("purchases.html", purchases=purchase_rows)
+    include_settled = _parse_bool(request.args.get("include_settled"))
+    sort_key = _normalize_sort(request.args.get("sort"))
+    purchase_query = Purchase.query
+    if not include_settled:
+        purchase_query = purchase_query.filter(Purchase.amount > Purchase.paid_amount)
+    purchase_rows = _apply_sort(
+        purchase_query, Purchase, sort_key, Purchase.amount - Purchase.paid_amount
+    ).all()
+    return render_template(
+        "purchases.html",
+        purchases=purchase_rows,
+        filters={"include_settled": include_settled, "sort": sort_key},
+    )
 
 
 @web_bp.route("/debts", methods=["GET", "POST"])
@@ -132,8 +184,35 @@ def debts():
         flash("تم تسجيل الدين بنجاح.", "success")
         return redirect(url_for("web.debts"))
 
-    debt_rows = Debt.query.order_by(Debt.created_at.desc()).all()
-    return render_template("debts.html", debts=debt_rows)
+    include_settled = _parse_bool(request.args.get("include_settled"))
+    sort_key = _normalize_sort(request.args.get("sort"))
+    debt_query = Debt.query
+    if not include_settled:
+        debt_query = debt_query.filter(Debt.total_amount > Debt.paid_amount)
+
+    if sort_key == "date_asc":
+        debt_query = debt_query.order_by(Debt.created_at.asc())
+    elif sort_key == "amount_desc":
+        debt_query = debt_query.order_by(Debt.total_amount.desc(), Debt.created_at.desc())
+    elif sort_key == "amount_asc":
+        debt_query = debt_query.order_by(Debt.total_amount.asc(), Debt.created_at.desc())
+    elif sort_key == "remaining_desc":
+        debt_query = debt_query.order_by(
+            (Debt.total_amount - Debt.paid_amount).desc(), Debt.created_at.desc()
+        )
+    elif sort_key == "remaining_asc":
+        debt_query = debt_query.order_by(
+            (Debt.total_amount - Debt.paid_amount).asc(), Debt.created_at.desc()
+        )
+    else:
+        debt_query = debt_query.order_by(Debt.created_at.desc())
+
+    debt_rows = debt_query.all()
+    return render_template(
+        "debts.html",
+        debts=debt_rows,
+        filters={"include_settled": include_settled, "sort": sort_key},
+    )
 
 
 @web_bp.route("/search")
@@ -277,6 +356,55 @@ def _csv_response(filename: str, headers: list[str], rows: list[list[str]]) -> R
     )
 
 
+def _build_backup_payload() -> dict:
+    return {
+        "app_name": "دفتر الحسابات المنتظم",
+        "backup_version": 1,
+        "generated_at": datetime.utcnow().isoformat(),
+        "sales": [
+            {
+                "customer_name": row.customer_name,
+                "description": row.description or "",
+                "amount": row.amount,
+                "paid_amount": row.paid_amount,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in Sale.query.order_by(Sale.created_at.asc()).all()
+        ],
+        "purchases": [
+            {
+                "supplier_name": row.supplier_name,
+                "description": row.description or "",
+                "amount": row.amount,
+                "paid_amount": row.paid_amount,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in Purchase.query.order_by(Purchase.created_at.asc()).all()
+        ],
+        "debts": [
+            {
+                "party_name": row.party_name,
+                "party_type": row.party_type,
+                "total_amount": row.total_amount,
+                "paid_amount": row.paid_amount,
+                "note": row.note or "",
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in Debt.query.order_by(Debt.created_at.asc()).all()
+        ],
+    }
+
+
+def _write_auto_backup_snapshot() -> str | None:
+    payload = _build_backup_payload()
+    backups_dir = Path(current_app.instance_path) / "backups"
+    backups_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"pre_restore_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    backup_path = backups_dir / filename
+    backup_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return filename
+
+
 @web_bp.route("/reports/export/sales.csv")
 def export_sales_csv():
     sales_rows = Sale.query.order_by(Sale.created_at.desc()).all()
@@ -357,42 +485,7 @@ def export_dashboard_csv():
 
 @web_bp.route("/reports/backup/export.json")
 def export_backup_json():
-    payload = {
-        "app_name": "دفتر الحسابات المنتظم",
-        "backup_version": 1,
-        "generated_at": datetime.utcnow().isoformat(),
-        "sales": [
-            {
-                "customer_name": row.customer_name,
-                "description": row.description or "",
-                "amount": row.amount,
-                "paid_amount": row.paid_amount,
-                "created_at": row.created_at.isoformat(),
-            }
-            for row in Sale.query.order_by(Sale.created_at.asc()).all()
-        ],
-        "purchases": [
-            {
-                "supplier_name": row.supplier_name,
-                "description": row.description or "",
-                "amount": row.amount,
-                "paid_amount": row.paid_amount,
-                "created_at": row.created_at.isoformat(),
-            }
-            for row in Purchase.query.order_by(Purchase.created_at.asc()).all()
-        ],
-        "debts": [
-            {
-                "party_name": row.party_name,
-                "party_type": row.party_type,
-                "total_amount": row.total_amount,
-                "paid_amount": row.paid_amount,
-                "note": row.note or "",
-                "created_at": row.created_at.isoformat(),
-            }
-            for row in Debt.query.order_by(Debt.created_at.asc()).all()
-        ],
-    }
+    payload = _build_backup_payload()
     return Response(
         json.dumps(payload, ensure_ascii=False, indent=2),
         mimetype="application/json; charset=utf-8",
@@ -423,6 +516,12 @@ def import_backup_json():
     if not all(isinstance(bucket, list) for bucket in (sales_data, purchases_data, debts_data)):
         flash("بنية ملف النسخ الاحتياطي غير صحيحة.", "error")
         return redirect(url_for("web.reports"))
+
+    auto_backup_name = None
+    try:
+        auto_backup_name = _write_auto_backup_snapshot()
+    except Exception:
+        auto_backup_name = None
 
     if import_mode == "replace":
         db.session.query(Sale).delete()
@@ -487,7 +586,8 @@ def import_backup_json():
     mode_label = "استبدال كامل" if import_mode == "replace" else "إضافة على البيانات الحالية"
     flash(
         f"تم الاستيراد بنجاح ({mode_label}) - مبيعات: {added_counts['sales']}، "
-        f"مشتريات: {added_counts['purchases']}، ديون: {added_counts['debts']}.",
+        f"مشتريات: {added_counts['purchases']}، ديون: {added_counts['debts']}"
+        + (f" | نسخة أمان تلقائية: {auto_backup_name}" if auto_backup_name else ""),
         "success",
     )
     return redirect(url_for("web.reports"))

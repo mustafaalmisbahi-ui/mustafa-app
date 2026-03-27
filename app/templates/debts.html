@@ -34,7 +34,12 @@
 <section class="card">
     <div class="table-header">
         <h2>سجل الديون</h2>
-        <a class="btn btn-secondary" href="{{ url_for('web.export_debts_csv') }}">تصدير CSV</a>
+        <div class="table-actions">
+            <a class="btn btn-secondary" href="{{ url_for('web.export_debts_csv') }}">تصدير CSV</a>
+            <a class="btn btn-light" href="{{ url_for('web.debts', show_settled='1' if not show_settled else '0') }}">
+                {% if show_settled %}إخفاء المسدد بالكامل{% else %}إظهار المسدد بالكامل{% endif %}
+            </a>
+        </div>
     </div>
     <div class="table-wrap">
         <table>
