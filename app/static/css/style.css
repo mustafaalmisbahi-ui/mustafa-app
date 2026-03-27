@@ -53,6 +53,38 @@ body {
     margin: 1.25rem auto;
 }
 
+.site-header {
+    background: var(--primary);
+    color: #ffffff;
+    padding: 1rem 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.site-header h1 {
+    margin: 0 0 0.75rem;
+    font-size: 1.5rem;
+}
+
+.main-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.main-nav a {
+    color: #ffffff;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.4rem;
+    font-size: 0.92rem;
+}
+
+.main-nav a.active,
+.main-nav a:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
 .page-header h2 {
     margin: 0 0 0.5rem;
 }
@@ -217,6 +249,13 @@ button[type="submit"]:hover {
     margin-bottom: 1rem;
 }
 
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
 .btn-secondary {
     background: #e5e7eb;
     color: #111827;
@@ -230,7 +269,19 @@ button[type="submit"]:hover {
     margin-bottom: 1rem;
 }
 
+.flash-list {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+}
+
 .alert {
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.45rem;
+    margin-bottom: 0.5rem;
+}
+
+.flash {
     padding: 0.6rem 0.75rem;
     border-radius: 0.45rem;
     margin-bottom: 0.5rem;
@@ -247,6 +298,12 @@ button[type="submit"]:hover {
 }
 
 .footer {
+    text-align: center;
+    color: var(--muted);
+    padding: 0.5rem 0 1rem;
+}
+
+.site-footer {
     text-align: center;
     color: var(--muted);
     padding: 0.5rem 0 1rem;

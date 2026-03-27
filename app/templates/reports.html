@@ -11,6 +11,19 @@
   <a class="btn" href="{{ url_for('web.export_purchases_csv') }}">تصدير المشتريات (CSV)</a>
   <a class="btn" href="{{ url_for('web.export_debts_csv') }}">تصدير الديون (CSV)</a>
   <a class="btn" href="{{ url_for('web.export_dashboard_csv') }}">تصدير الملخص (CSV)</a>
+  <a class="btn" href="{{ url_for('web.export_backup_json') }}">نسخة احتياطية (JSON)</a>
+</section>
+
+<section class="form-section">
+  <h2>استرجاع نسخة احتياطية</h2>
+  <p class="note">يمكنك استرجاع نسخة JSON تم تصديرها سابقًا (سيتم استبدال البيانات الحالية).</p>
+  <form method="post" action="{{ url_for('web.import_backup_json') }}" enctype="multipart/form-data" class="form-grid">
+    <label>
+      ملف النسخة الاحتياطية
+      <input type="file" name="backup_file" accept=".json,application/json" required>
+    </label>
+    <button type="submit">استرجاع النسخة</button>
+  </form>
 </section>
 
 <section class="form-section" id="summary-report">

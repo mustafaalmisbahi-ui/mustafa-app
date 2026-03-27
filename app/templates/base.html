@@ -15,6 +15,7 @@
                 <a href="{{ url_for('web.sales') }}" class="{% if request.endpoint == 'web.sales' %}active{% endif %}">المبيعات</a>
                 <a href="{{ url_for('web.purchases') }}" class="{% if request.endpoint == 'web.purchases' %}active{% endif %}">المشتريات</a>
                 <a href="{{ url_for('web.debts') }}" class="{% if request.endpoint == 'web.debts' %}active{% endif %}">الديون</a>
+                <a href="{{ url_for('web.search') }}" class="{% if request.endpoint == 'web.search' %}active{% endif %}">البحث</a>
                 <a href="{{ url_for('web.reports') }}" class="{% if request.endpoint == 'web.reports' %}active{% endif %}">التقارير</a>
             </nav>
         </div>

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}بحث متقدم{% endblock %}
+{% block content %}
+<section class="section-header">
+  <h1>البحث المتقدم</h1>
+  <p>ابحث بسرعة في المبيعات والمشتريات والديون بالكلمة، التاريخ، أو المبلغ.</p>
+</section>
+
+<section class="form-section">
+  <form method="get" action="{{ url_for('web.search') }}" class="form-grid">
+    <label>
+      الكلمة المفتاحية
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="اسم عميل/مورد/وصف/ملاحظة">
+    </label>
+    <label>
+      القسم
+      <select name="entity">
+        <option value="all" {% if filters.entity == "all" %}selected{% endif %}>الكل</option>
+        <option value="sales" {% if filters.entity == "sales" %}selected{% endif %}>المبيعات</option>
+        <option value="purchases" {% if filters.entity == "purchases" %}selected{% endif %}>المشتريات</option>
+        <option value="debts" {% if filters.entity == "debts" %}selected{% endif %}>الديون</option>
+      </select>
+    </label>
+    <label>
+      من تاريخ
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+    <label>
+      إلى تاريخ
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+    <label>
+      أقل مبلغ
+      <input type="number" step="0.01" min="0" name="min_amount" value="{{ filters.min_amount }}">
+    </label>
+    <label>
+      أعلى مبلغ
+      <input type="number" step="0.01" min="0" name="max_amount" value="{{ filters.max_amount }}">
+    </label>
+    <button type="submit" class="btn">تنفيذ البحث</button>
+  </form>
+</section>
+
+<section class="stats-grid">
+  <article class="card">
+    <h3>نتائج المبيعات</h3>
+    <p class="metric">{{ stats.sales }}</p>
+  </article>
+  <article class="card">
+    <h3>نتائج المشتريات</h3>
+    <p class="metric">{{ stats.purchases }}</p>
+  </article>
+  <article class="card">
+    <h3>نتائج الديون</h3>
+    <p class="metric">{{ stats.debts }}</p>
+  </article>
+  <article class="card">
+    <h3>إجمالي النتائج</h3>
+    <p class="metric">{{ results|length }}</p>
+  </article>
+</section>
+
+<section class="card">
+  <h2>نتائج البحث</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>القسم</th>
+          <th>الاسم</th>
+          <th>الوصف/الملاحظة</th>
+          <th>الإجمالي</th>
+          <th>المدفوع</th>
+          <th>المتبقي</th>
+          <th>التاريخ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in results %}
+        <tr>
+          <td>{{ row.entry_type_ar }}</td>
+          <td>{{ row.party_name }}</td>
+          <td>{{ row.description or "-" }}</td>
+          <td>{{ "%.2f"|format(row.amount) }}</td>
+          <td>{{ "%.2f"|format(row.paid_amount) }}</td>
+          <td>{{ "%.2f"|format(row.remaining) }}</td>
+          <td>{{ row.created_at.strftime("%Y-%m-%d") }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="note">لا توجد نتائج مطابقة.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

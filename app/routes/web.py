@@ -1,8 +1,10 @@
 import csv
+import json
+from datetime import datetime, time
 from io import StringIO
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
-from flask import Response
+from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
+from sqlalchemy import or_
 
 from app.extensions import db
 from app.models import Debt, Purchase, Sale
@@ -16,6 +18,24 @@ def _parse_amount(value: str | None) -> float:
         return max(float(value or 0), 0.0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _parse_date(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _parse_datetime(value: str | None) -> datetime:
+    if not value:
+        return datetime.utcnow()
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return datetime.utcnow()
 
 
 @web_bp.route("/")
@@ -116,6 +136,130 @@ def debts():
     return render_template("debts.html", debts=debt_rows)
 
 
+@web_bp.route("/search")
+def search():
+    q = (request.args.get("q") or "").strip()
+    entity = (request.args.get("entity") or "all").strip().lower()
+    min_amount = _parse_amount(request.args.get("min_amount")) if request.args.get("min_amount") else None
+    max_amount = _parse_amount(request.args.get("max_amount")) if request.args.get("max_amount") else None
+    date_from = _parse_date(request.args.get("date_from"))
+    date_to = _parse_date(request.args.get("date_to"))
+
+    if date_from and date_to and date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    results = []
+    stats = {"sales": 0, "purchases": 0, "debts": 0}
+    from_dt = datetime.combine(date_from, time.min) if date_from else None
+    to_dt = datetime.combine(date_to, time.max) if date_to else None
+
+    if entity in {"all", "sales"}:
+        sales_query = Sale.query
+        if q:
+            sales_query = sales_query.filter(
+                or_(Sale.customer_name.ilike(f"%{q}%"), Sale.description.ilike(f"%{q}%"))
+            )
+        if min_amount is not None:
+            sales_query = sales_query.filter(Sale.amount >= min_amount)
+        if max_amount is not None:
+            sales_query = sales_query.filter(Sale.amount <= max_amount)
+        if from_dt:
+            sales_query = sales_query.filter(Sale.created_at >= from_dt)
+        if to_dt:
+            sales_query = sales_query.filter(Sale.created_at <= to_dt)
+
+        sales_rows = sales_query.order_by(Sale.created_at.desc()).all()
+        stats["sales"] = len(sales_rows)
+        for row in sales_rows:
+            results.append(
+                {
+                    "entry_type": "sale",
+                    "entry_type_ar": "بيع",
+                    "party_name": row.customer_name,
+                    "description": row.description or "-",
+                    "amount": row.amount,
+                    "paid_amount": row.paid_amount,
+                    "remaining": row.remaining,
+                    "created_at": row.created_at,
+                }
+            )
+
+    if entity in {"all", "purchases"}:
+        purchases_query = Purchase.query
+        if q:
+            purchases_query = purchases_query.filter(
+                or_(Purchase.supplier_name.ilike(f"%{q}%"), Purchase.description.ilike(f"%{q}%"))
+            )
+        if min_amount is not None:
+            purchases_query = purchases_query.filter(Purchase.amount >= min_amount)
+        if max_amount is not None:
+            purchases_query = purchases_query.filter(Purchase.amount <= max_amount)
+        if from_dt:
+            purchases_query = purchases_query.filter(Purchase.created_at >= from_dt)
+        if to_dt:
+            purchases_query = purchases_query.filter(Purchase.created_at <= to_dt)
+
+        purchases_rows = purchases_query.order_by(Purchase.created_at.desc()).all()
+        stats["purchases"] = len(purchases_rows)
+        for row in purchases_rows:
+            results.append(
+                {
+                    "entry_type": "purchase",
+                    "entry_type_ar": "شراء",
+                    "party_name": row.supplier_name,
+                    "description": row.description or "-",
+                    "amount": row.amount,
+                    "paid_amount": row.paid_amount,
+                    "remaining": row.remaining,
+                    "created_at": row.created_at,
+                }
+            )
+
+    if entity in {"all", "debts"}:
+        debts_query = Debt.query
+        if q:
+            debts_query = debts_query.filter(or_(Debt.party_name.ilike(f"%{q}%"), Debt.note.ilike(f"%{q}%")))
+        if min_amount is not None:
+            debts_query = debts_query.filter(Debt.total_amount >= min_amount)
+        if max_amount is not None:
+            debts_query = debts_query.filter(Debt.total_amount <= max_amount)
+        if from_dt:
+            debts_query = debts_query.filter(Debt.created_at >= from_dt)
+        if to_dt:
+            debts_query = debts_query.filter(Debt.created_at <= to_dt)
+
+        debt_rows = debts_query.order_by(Debt.created_at.desc()).all()
+        stats["debts"] = len(debt_rows)
+        for row in debt_rows:
+            results.append(
+                {
+                    "entry_type": "debt",
+                    "entry_type_ar": "دين",
+                    "party_name": row.party_name,
+                    "description": row.note or ("عميل" if row.party_type == "customer" else "مورد"),
+                    "amount": row.total_amount,
+                    "paid_amount": row.paid_amount,
+                    "remaining": row.remaining,
+                    "created_at": row.created_at,
+                }
+            )
+
+    results.sort(key=lambda item: item["created_at"], reverse=True)
+    return render_template(
+        "search.html",
+        results=results,
+        stats=stats,
+        filters={
+            "q": q,
+            "entity": entity,
+            "min_amount": request.args.get("min_amount", ""),
+            "max_amount": request.args.get("max_amount", ""),
+            "date_from": request.args.get("date_from", ""),
+            "date_to": request.args.get("date_to", ""),
+        },
+    )
+
+
 @web_bp.route("/reports")
 def reports():
     return render_template("reports.html", metrics=calculate_dashboard_metrics())
@@ -209,3 +353,141 @@ def export_dashboard_csv():
         ["open_debts_total", f"{metrics['open_debts_total']:.2f}"],
     ]
     return _csv_response("dashboard_summary.csv", ["metric", "value"], rows)
+
+
+@web_bp.route("/reports/backup/export.json")
+def export_backup_json():
+    payload = {
+        "app_name": "دفتر الحسابات المنتظم",
+        "backup_version": 1,
+        "generated_at": datetime.utcnow().isoformat(),
+        "sales": [
+            {
+                "customer_name": row.customer_name,
+                "description": row.description or "",
+                "amount": row.amount,
+                "paid_amount": row.paid_amount,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in Sale.query.order_by(Sale.created_at.asc()).all()
+        ],
+        "purchases": [
+            {
+                "supplier_name": row.supplier_name,
+                "description": row.description or "",
+                "amount": row.amount,
+                "paid_amount": row.paid_amount,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in Purchase.query.order_by(Purchase.created_at.asc()).all()
+        ],
+        "debts": [
+            {
+                "party_name": row.party_name,
+                "party_type": row.party_type,
+                "total_amount": row.total_amount,
+                "paid_amount": row.paid_amount,
+                "note": row.note or "",
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in Debt.query.order_by(Debt.created_at.asc()).all()
+        ],
+    }
+    return Response(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        mimetype="application/json; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="accounting_backup.json"'},
+    )
+
+
+@web_bp.route("/reports/backup/import", methods=["POST"])
+def import_backup_json():
+    backup_file = request.files.get("backup_file")
+    import_mode = (request.form.get("import_mode") or "append").strip().lower()
+    if import_mode not in {"append", "replace"}:
+        import_mode = "append"
+
+    if not backup_file or not backup_file.filename:
+        flash("يرجى اختيار ملف نسخ احتياطي بصيغة JSON.", "error")
+        return redirect(url_for("web.reports"))
+
+    try:
+        payload = json.load(backup_file.stream)
+    except json.JSONDecodeError:
+        flash("الملف غير صالح. الرجاء رفع ملف JSON صحيح.", "error")
+        return redirect(url_for("web.reports"))
+
+    sales_data = payload.get("sales", [])
+    purchases_data = payload.get("purchases", [])
+    debts_data = payload.get("debts", [])
+    if not all(isinstance(bucket, list) for bucket in (sales_data, purchases_data, debts_data)):
+        flash("بنية ملف النسخ الاحتياطي غير صحيحة.", "error")
+        return redirect(url_for("web.reports"))
+
+    if import_mode == "replace":
+        db.session.query(Sale).delete()
+        db.session.query(Purchase).delete()
+        db.session.query(Debt).delete()
+
+    added_counts = {"sales": 0, "purchases": 0, "debts": 0}
+    try:
+        for item in sales_data:
+            amount = _parse_amount(item.get("amount"))
+            paid_amount = min(_parse_amount(item.get("paid_amount")), amount)
+            db.session.add(
+                Sale(
+                    customer_name=(item.get("customer_name") or "غير محدد").strip(),
+                    description=(item.get("description") or "").strip() or None,
+                    amount=amount,
+                    paid_amount=paid_amount,
+                    created_at=_parse_datetime(item.get("created_at")),
+                )
+            )
+            added_counts["sales"] += 1
+
+        for item in purchases_data:
+            amount = _parse_amount(item.get("amount"))
+            paid_amount = min(_parse_amount(item.get("paid_amount")), amount)
+            db.session.add(
+                Purchase(
+                    supplier_name=(item.get("supplier_name") or "غير محدد").strip(),
+                    description=(item.get("description") or "").strip() or None,
+                    amount=amount,
+                    paid_amount=paid_amount,
+                    created_at=_parse_datetime(item.get("created_at")),
+                )
+            )
+            added_counts["purchases"] += 1
+
+        for item in debts_data:
+            total_amount = _parse_amount(item.get("total_amount"))
+            paid_amount = min(_parse_amount(item.get("paid_amount")), total_amount)
+            party_type = (item.get("party_type") or "customer").strip().lower()
+            if party_type not in {"customer", "supplier"}:
+                party_type = "customer"
+
+            db.session.add(
+                Debt(
+                    party_name=(item.get("party_name") or "غير محدد").strip(),
+                    party_type=party_type,
+                    total_amount=total_amount,
+                    paid_amount=paid_amount,
+                    note=(item.get("note") or "").strip() or None,
+                    created_at=_parse_datetime(item.get("created_at")),
+                )
+            )
+            added_counts["debts"] += 1
+
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash("حدث خطأ أثناء استيراد النسخة الاحتياطية.", "error")
+        return redirect(url_for("web.reports"))
+
+    mode_label = "استبدال كامل" if import_mode == "replace" else "إضافة على البيانات الحالية"
+    flash(
+        f"تم الاستيراد بنجاح ({mode_label}) - مبيعات: {added_counts['sales']}، "
+        f"مشتريات: {added_counts['purchases']}، ديون: {added_counts['debts']}.",
+        "success",
+    )
+    return redirect(url_for("web.reports"))
