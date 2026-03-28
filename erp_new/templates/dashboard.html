@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>لوحة التحكم</h2>
+<div class="grid">
+  <div class="card stat"><h3>العملاء</h3><p>{{ stats.customers }}</p></div>
+  <div class="card stat"><h3>الطلبات</h3><p>{{ stats.orders }}</p></div>
+  <div class="card stat"><h3>الموظفون</h3><p>{{ stats.employees }}</p></div>
+  <div class="card stat"><h3>إجمالي الإيراد</h3><p>{{ "%.2f"|format(stats.revenue) }}</p></div>
+</div>
+
+<div class="card">
+  <h3>آخر الطلبات</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>رقم الطلب</th>
+        <th>العنوان</th>
+        <th>العميل</th>
+        <th>الحالة</th>
+        <th>المبلغ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in latest_orders %}
+      <tr>
+        <td>{{ o.order_no }}</td>
+        <td>{{ o.title }}</td>
+        <td>{{ o.customer_name }}</td>
+        <td>{{ o.status }}</td>
+        <td>{{ "%.2f"|format(o.total_amount) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">لا توجد طلبات بعد</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

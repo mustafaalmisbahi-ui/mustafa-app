@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}الموظفين{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>إدارة الموظفين</h2>
+  <p class="muted">إضافة موظف + تفعيل/تعطيل (للأدمن فقط)</p>
+</div>
+
+{% if current_user_role == "admin" %}
+<div class="card">
+  <h3>إضافة موظف</h3>
+  <form method="post" class="grid grid-3">
+    <div>
+      <label>الاسم *</label>
+      <input type="text" name="name" required />
+    </div>
+    <div>
+      <label>البريد الإلكتروني</label>
+      <input type="email" name="email" />
+    </div>
+    <div>
+      <label>الدور</label>
+      <select name="role">
+        <option value="user">مستخدم</option>
+        <option value="sales">مبيعات</option>
+        <option value="production">إنتاج</option>
+        <option value="designer">مصمم</option>
+        <option value="technician">فني</option>
+        <option value="admin">مدير</option>
+      </select>
+    </div>
+    <div class="col-3">
+      <button type="submit">إضافة موظف</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>قائمة الموظفين</h3>
+  {% if employees %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>الاسم</th>
+        <th>البريد</th>
+        <th>الدور</th>
+        <th>الحالة</th>
+        <th>تاريخ الإنشاء</th>
+        <th>إجراء</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      <tr>
+        <td>{{ emp.id }}</td>
+        <td>{{ emp.name }}</td>
+        <td>{{ emp.email or "-" }}</td>
+        <td>{{ emp.role }}</td>
+        <td>
+          {% if emp.active %}
+          <span class="status delivered">نشط</span>
+          {% else %}
+          <span class="status cancelled">معطل</span>
+          {% endif %}
+        </td>
+        <td>{{ emp.created_at }}</td>
+        <td>
+          {% if current_user_role == "admin" %}
+          <form method="post" action="{{ url_for('toggle_employee', employee_id=emp.id) }}">
+            <button class="secondary" type="submit">
+              {% if emp.active %}تعطيل{% else %}تفعيل{% endif %}
+            </button>
+          </form>
+          {% else %}
+          -
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">لا يوجد موظفين بعد.</p>
+  {% endif %}
+</div>
+{% endblock %}

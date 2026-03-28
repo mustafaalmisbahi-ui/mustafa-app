@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}تسجيل الدخول{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="card" style="max-width:480px;margin:40px auto;">
+    <h2>تسجيل الدخول</h2>
+    <p class="muted">الدخول الافتراضي: <code>admin</code> / <code>admin123</code></p>
+    <form method="post" class="form">
+      <label>اسم المستخدم
+        <input type="text" name="username" required />
+      </label>
+      <label>كلمة المرور
+        <input type="password" name="password" required />
+      </label>
+      <button class="btn primary" type="submit">دخول</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
