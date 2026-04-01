@@ -13,3 +13,8 @@ ENV/
 
 # Other potentially sensitive files
 *.sqlite3
+
+# Android build and SDK artifacts
+android-sdk/
+android-app/.gradle/
+android-app/app/build/
