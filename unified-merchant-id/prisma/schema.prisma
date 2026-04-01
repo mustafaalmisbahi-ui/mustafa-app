@@ -1,0 +1,142 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum MerchantStatus {
+  active
+  inactive
+  pending_update
+  draft
+}
+
+enum BranchStatus {
+  active
+  inactive
+  pending_update
+}
+
+enum WalletStatus {
+  active
+  inactive
+  temporary
+}
+
+enum AuditEntityType {
+  merchant
+  branch
+  wallet
+  print
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  adminUserId String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, expiresAt])
+}
+
+model SequenceCounter {
+  id          Int @id
+  merchantSeq Int @default(1000)
+}
+
+model Merchant {
+  id               String         @id @default(cuid())
+  merchantCode     String         @unique
+  sequenceNumber   Int            @unique
+  nextBranchNumber Int            @default(1)
+  storeName        String
+  ownerName        String
+  phone            String
+  city             String
+  district         String
+  businessType     String
+  address          String
+  status           MerchantStatus @default(draft)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  branches         Branch[]
+  auditLogs        AuditLog[]
+
+  @@index([merchantCode])
+  @@index([storeName])
+  @@index([phone])
+  @@index([city])
+  @@index([status])
+}
+
+model Branch {
+  id                  String       @id @default(cuid())
+  merchantId          String
+  branchCode          String       @unique
+  branchNumber        Int
+  branchName          String
+  city                String
+  district            String
+  locationDescription String
+  status              BranchStatus @default(active)
+  notes               String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  merchant            Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  walletAccounts      WalletAccount[]
+
+  @@unique([merchantId, branchNumber])
+  @@index([merchantId])
+  @@index([branchCode])
+  @@index([status])
+}
+
+model WalletAccount {
+  id                 String       @id @default(cuid())
+  branchId           String
+  walletProviderName String
+  walletNumber       String
+  accountName        String?
+  status             WalletStatus @default(active)
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  branch             Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, walletNumber])
+  @@index([branchId])
+  @@index([walletNumber])
+}
+
+model AuditLog {
+  id          String          @id @default(cuid())
+  merchantId  String
+  entityType  AuditEntityType
+  entityId    String
+  actionType  String
+  description String
+  createdAt   DateTime        @default(now())
+  merchant    Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, createdAt])
+  @@index([entityType, entityId])
+}
