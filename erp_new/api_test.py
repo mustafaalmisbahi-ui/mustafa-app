@@ -18,6 +18,9 @@ class ApiTestCase(unittest.TestCase):
             json={"username": "admin", "password": "admin123"},
         )
         self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        token = payload["token"]
+        return {"Authorization": f"Bearer {token}"}
 
     def test_health(self) -> None:
         response = self.client.get("/api/health")
@@ -26,27 +29,30 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
 
     def test_customers_orders_employees_flow(self) -> None:
-        self.login()
+        headers = self.login()
 
         customer = self.client.post(
             "/api/customers",
             json={"name": "شركة النور", "phone": "777777"},
+            headers=headers,
         )
         self.assertEqual(customer.status_code, 201)
 
         order = self.client.post(
             "/api/orders",
             json={"customer_id": 1, "title": "علب شحن", "quantity": 500, "total_amount": 25000},
+            headers=headers,
         )
         self.assertEqual(order.status_code, 201)
 
         employee = self.client.post(
             "/api/employees",
             json={"name": "محمد", "email": "m@test.com", "role": "production"},
+            headers=headers,
         )
         self.assertEqual(employee.status_code, 201)
 
-        dashboard = self.client.get("/api/dashboard")
+        dashboard = self.client.get("/api/dashboard", headers=headers)
         self.assertEqual(dashboard.status_code, 200)
         payload = dashboard.get_json()
         self.assertGreaterEqual(payload["stats"]["customers"], 1)
