@@ -1,8 +1,19 @@
 import os
+import secrets
 import sqlite3
 from functools import wraps
 
-from flask import Flask, flash, g, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -20,6 +31,8 @@ ORDER_STATUS_CHOICES = [
     ("delivered", "تم التسليم"),
     ("cancelled", "ملغي"),
 ]
+ORDER_STATUS_KEYS = {choice[0] for choice in ORDER_STATUS_CHOICES}
+ROLE_CHOICES = {"admin", "sales", "production", "designer", "technician", "user"}
 
 
 def create_app() -> Flask:
@@ -83,6 +96,16 @@ def create_app() -> Flask:
                 active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS api_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                revoked INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_used_at TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
             """
         )
         db.commit()
@@ -123,6 +146,79 @@ def create_app() -> Flask:
         next_id = (row["max_id"] or 0) + 1
         return f"ORD-{next_id:04d}"
 
+    def row_to_dict(row: sqlite3.Row | None) -> dict | None:
+        if row is None:
+            return None
+        return {k: row[k] for k in row.keys()}
+
+    def json_error(message: str, status_code: int):
+        return jsonify({"success": False, "error": message}), status_code
+
+    def create_api_token(user_id: int) -> str:
+        token = secrets.token_urlsafe(32)
+        db = get_db()
+        db.execute(
+            "INSERT INTO api_tokens (user_id, token, revoked) VALUES (?, ?, 0)",
+            (user_id, token),
+        )
+        db.commit()
+        return token
+
+    def get_api_user():
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return None, None
+
+        token = auth_header.split(" ", 1)[1].strip()
+        if not token:
+            return None, None
+
+        db = get_db()
+        row = db.execute(
+            """
+            SELECT u.id, u.username, u.full_name, u.role, u.active, t.id AS token_id
+            FROM api_tokens t
+            JOIN users u ON u.id = t.user_id
+            WHERE t.token = ? AND t.revoked = 0
+            LIMIT 1
+            """,
+            (token,),
+        ).fetchone()
+
+        if row is None:
+            return None, token
+        if not row["active"]:
+            return None, token
+
+        db.execute(
+            "UPDATE api_tokens SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (row["token_id"],),
+        )
+        db.commit()
+        return row, token
+
+    def api_auth_required(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user, token = get_api_user()
+            if user is None:
+                return json_error("Unauthorized", 401)
+            g.api_user = user
+            g.api_token = token
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    def api_admin_required(view):
+        @wraps(view)
+        @api_auth_required
+        def wrapped(*args, **kwargs):
+            if g.api_user["role"] != "admin":
+                return json_error("Forbidden: admin only", 403)
+            return view(*args, **kwargs)
+
+        return wrapped
+
     @app.context_processor
     def inject_globals():
         return {
@@ -141,6 +237,361 @@ def create_app() -> Flask:
     @app.get("/health")
     def health():
         return {"status": "ok"}, 200
+
+    # -------------------- JSON API --------------------
+    @app.get("/api/health")
+    def api_health():
+        return jsonify({"success": True, "status": "ok"})
+
+    @app.post("/api/auth/login")
+    def api_login():
+        init_db()
+        payload = request.get_json(silent=True) or {}
+        username = str(payload.get("username", "")).strip()
+        password = str(payload.get("password", ""))
+
+        if not username or not password:
+            return json_error("username and password are required", 400)
+
+        db = get_db()
+        user = db.execute(
+            "SELECT id, username, password_hash, full_name, role, active FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+
+        if user is None or not check_password_hash(user["password_hash"], password):
+            return json_error("Invalid credentials", 401)
+        if not user["active"]:
+            return json_error("Account is disabled", 403)
+
+        token = create_api_token(user["id"])
+        return jsonify(
+            {
+                "success": True,
+                "token": token,
+                "user": {
+                    "id": user["id"],
+                    "username": user["username"],
+                    "full_name": user["full_name"],
+                    "role": user["role"],
+                },
+            }
+        )
+
+    @app.post("/api/auth/logout")
+    @api_auth_required
+    def api_logout():
+        db = get_db()
+        db.execute("UPDATE api_tokens SET revoked = 1 WHERE token = ?", (g.api_token,))
+        db.commit()
+        return jsonify({"success": True})
+
+    @app.get("/api/auth/me")
+    @api_auth_required
+    def api_me():
+        return jsonify(
+            {
+                "success": True,
+                "user": {
+                    "id": g.api_user["id"],
+                    "username": g.api_user["username"],
+                    "full_name": g.api_user["full_name"],
+                    "role": g.api_user["role"],
+                },
+            }
+        )
+
+    @app.get("/api/dashboard")
+    @api_auth_required
+    def api_dashboard():
+        db = get_db()
+        stats = {
+            "customers": db.execute("SELECT COUNT(*) AS c FROM customers").fetchone()["c"],
+            "orders": db.execute("SELECT COUNT(*) AS c FROM orders").fetchone()["c"],
+            "employees": db.execute("SELECT COUNT(*) AS c FROM employees").fetchone()["c"],
+            "revenue": db.execute("SELECT COALESCE(SUM(total_amount), 0) AS s FROM orders").fetchone()["s"],
+        }
+        latest_orders = db.execute(
+            """
+            SELECT o.id, o.order_no, o.title, o.status, o.quantity, o.total_amount, c.name AS customer_name
+            FROM orders o
+            JOIN customers c ON c.id = o.customer_id
+            ORDER BY o.id DESC
+            LIMIT 10
+            """
+        ).fetchall()
+        return jsonify(
+            {
+                "success": True,
+                "stats": stats,
+                "latest_orders": [row_to_dict(r) for r in latest_orders],
+            }
+        )
+
+    @app.get("/api/customers")
+    @api_auth_required
+    def api_customers_list():
+        q = str(request.args.get("q", "")).strip()
+        db = get_db()
+        if q:
+            rows = db.execute(
+                """
+                SELECT * FROM customers
+                WHERE name LIKE ? OR phone LIKE ? OR company LIKE ?
+                ORDER BY id DESC
+                """,
+                (f"%{q}%", f"%{q}%", f"%{q}%"),
+            ).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM customers ORDER BY id DESC").fetchall()
+        return jsonify({"success": True, "customers": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/customers")
+    @api_auth_required
+    def api_customers_create():
+        payload = request.get_json(silent=True) or {}
+        name = str(payload.get("name", "")).strip()
+        if not name:
+            return json_error("name is required", 400)
+
+        phone = str(payload.get("phone", "")).strip() or None
+        email = str(payload.get("email", "")).strip() or None
+        company = str(payload.get("company", "")).strip() or None
+        notes = str(payload.get("notes", "")).strip() or None
+
+        db = get_db()
+        cur = db.execute(
+            """
+            INSERT INTO customers (name, phone, email, company, notes)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (name, phone, email, company, notes),
+        )
+        db.commit()
+        created = db.execute("SELECT * FROM customers WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return jsonify({"success": True, "customer": row_to_dict(created)}), 201
+
+    @app.delete("/api/customers/<int:customer_id>")
+    @api_auth_required
+    def api_customers_delete(customer_id: int):
+        db = get_db()
+        linked = db.execute(
+            "SELECT COUNT(*) AS c FROM orders WHERE customer_id = ?", (customer_id,)
+        ).fetchone()["c"]
+        if linked:
+            return json_error("Cannot delete customer linked to orders", 409)
+
+        cur = db.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+        db.commit()
+        if cur.rowcount == 0:
+            return json_error("Customer not found", 404)
+        return jsonify({"success": True})
+
+    @app.get("/api/orders")
+    @api_auth_required
+    def api_orders_list():
+        status = str(request.args.get("status", "")).strip()
+        customer_id = str(request.args.get("customer_id", "")).strip()
+        db = get_db()
+
+        query = """
+            SELECT o.*, c.name AS customer_name
+            FROM orders o
+            JOIN customers c ON c.id = o.customer_id
+        """
+        params = []
+        conditions = []
+        if status:
+            conditions.append("o.status = ?")
+            params.append(status)
+        if customer_id:
+            conditions.append("o.customer_id = ?")
+            params.append(int(customer_id))
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY o.id DESC"
+
+        rows = db.execute(query, tuple(params)).fetchall()
+        return jsonify({"success": True, "orders": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/orders")
+    @api_auth_required
+    def api_orders_create():
+        payload = request.get_json(silent=True) or {}
+        try:
+            customer_id = int(payload.get("customer_id"))
+            quantity = int(payload.get("quantity"))
+            total_amount = float(payload.get("total_amount", 0))
+        except (TypeError, ValueError):
+            return json_error("customer_id, quantity, total_amount must be valid numbers", 400)
+
+        title = str(payload.get("title", "")).strip()
+        if not title:
+            return json_error("title is required", 400)
+
+        status = str(payload.get("status", "pricing")).strip() or "pricing"
+        if status not in ORDER_STATUS_KEYS:
+            return json_error("invalid status value", 400)
+
+        db = get_db()
+        exists = db.execute("SELECT id FROM customers WHERE id = ?", (customer_id,)).fetchone()
+        if exists is None:
+            return json_error("customer not found", 404)
+
+        cur = db.execute(
+            """
+            INSERT INTO orders (order_no, customer_id, title, quantity, total_amount, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (next_order_no(), customer_id, title, quantity, total_amount, status),
+        )
+        db.commit()
+        created = db.execute(
+            """
+            SELECT o.*, c.name AS customer_name
+            FROM orders o
+            JOIN customers c ON c.id = o.customer_id
+            WHERE o.id = ?
+            """,
+            (cur.lastrowid,),
+        ).fetchone()
+        return jsonify({"success": True, "order": row_to_dict(created)}), 201
+
+    @app.patch("/api/orders/<int:order_id>/status")
+    @api_auth_required
+    def api_orders_update_status(order_id: int):
+        payload = request.get_json(silent=True) or {}
+        status = str(payload.get("status", "")).strip()
+        if status not in ORDER_STATUS_KEYS:
+            return json_error("invalid status value", 400)
+
+        db = get_db()
+        cur = db.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
+        db.commit()
+        if cur.rowcount == 0:
+            return json_error("order not found", 404)
+        order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        return jsonify({"success": True, "order": row_to_dict(order)})
+
+    @app.get("/api/employees")
+    @api_auth_required
+    def api_employees_list():
+        db = get_db()
+        rows = db.execute("SELECT * FROM employees ORDER BY id DESC").fetchall()
+        return jsonify({"success": True, "employees": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/employees")
+    @api_admin_required
+    def api_employees_create():
+        payload = request.get_json(silent=True) or {}
+        name = str(payload.get("name", "")).strip()
+        if not name:
+            return json_error("name is required", 400)
+        email = str(payload.get("email", "")).strip() or None
+        role = str(payload.get("role", "user")).strip() or "user"
+        if role not in ROLE_CHOICES:
+            role = "user"
+
+        db = get_db()
+        try:
+            cur = db.execute(
+                "INSERT INTO employees (name, email, role, active) VALUES (?, ?, ?, 1)",
+                (name, email, role),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            return json_error("email already exists", 409)
+
+        created = db.execute("SELECT * FROM employees WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return jsonify({"success": True, "employee": row_to_dict(created)}), 201
+
+    @app.patch("/api/employees/<int:employee_id>/active")
+    @api_admin_required
+    def api_employees_toggle_active(employee_id: int):
+        payload = request.get_json(silent=True) or {}
+        if "active" not in payload:
+            return json_error("active field is required", 400)
+        active = 1 if bool(payload.get("active")) else 0
+
+        db = get_db()
+        cur = db.execute("UPDATE employees SET active = ? WHERE id = ?", (active, employee_id))
+        db.commit()
+        if cur.rowcount == 0:
+            return json_error("employee not found", 404)
+
+        employee = db.execute("SELECT * FROM employees WHERE id = ?", (employee_id,)).fetchone()
+        return jsonify({"success": True, "employee": row_to_dict(employee)})
+
+    @app.get("/api/users")
+    @api_admin_required
+    def api_users_list():
+        db = get_db()
+        rows = db.execute(
+            "SELECT id, username, full_name, role, active, created_at FROM users ORDER BY id DESC"
+        ).fetchall()
+        return jsonify({"success": True, "users": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/users")
+    @api_admin_required
+    def api_users_create():
+        payload = request.get_json(silent=True) or {}
+        username = str(payload.get("username", "")).strip()
+        password = str(payload.get("password", "")).strip()
+        full_name = str(payload.get("full_name", "")).strip()
+        role = str(payload.get("role", "user")).strip() or "user"
+        active = 1 if bool(payload.get("active", True)) else 0
+
+        if not username or not password or not full_name:
+            return json_error("username, password, full_name are required", 400)
+        if role not in ROLE_CHOICES:
+            role = "user"
+
+        db = get_db()
+        try:
+            cur = db.execute(
+                """
+                INSERT INTO users (username, password_hash, full_name, role, active)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, generate_password_hash(password), full_name, role, active),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            return json_error("username already exists", 409)
+
+        created = db.execute(
+            "SELECT id, username, full_name, role, active, created_at FROM users WHERE id = ?",
+            (cur.lastrowid,),
+        ).fetchone()
+        return jsonify({"success": True, "user": row_to_dict(created)}), 201
+
+    @app.patch("/api/users/<int:user_id>/active")
+    @api_admin_required
+    def api_users_update_active(user_id: int):
+        payload = request.get_json(silent=True) or {}
+        if "active" not in payload:
+            return json_error("active field is required", 400)
+        active = 1 if bool(payload.get("active")) else 0
+
+        if g.api_user["id"] == user_id and active == 0:
+            return json_error("cannot disable your own account", 400)
+
+        db = get_db()
+        cur = db.execute("UPDATE users SET active = ? WHERE id = ?", (active, user_id))
+        db.commit()
+        if cur.rowcount == 0:
+            return json_error("user not found", 404)
+        user = db.execute(
+            "SELECT id, username, full_name, role, active, created_at FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        return jsonify({"success": True, "user": row_to_dict(user)})
+
+    @app.errorhandler(404)
+    def handle_404(_error):
+        if request.path.startswith("/api/"):
+            return json_error("Not found", 404)
+        return render_template("base.html", content="404"), 404
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
