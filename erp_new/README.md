@@ -1,4 +1,4 @@
-# ERP Print Shop API (New Clean Start)
+# MPP Print Shop API (New Clean Start)
 
 مشروع جديد بالكامل لإدارة المطابع الورقية، منفصل عن المشروع السابق.
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ERP المطابع{% endblock %}</title>
+  <title>{% block title %}MPP{% endblock %}</title>
   <style>
     :root {
       --bg: #f7f8fb;
@@ -144,7 +144,7 @@
 <body>
   {% if session.get("user_id") %}
     <div class="nav">
-      <h1>ERP إدارة المطابع</h1>
+      <h1>MPP</h1>
       <div class="links">
         <a href="{{ url_for('dashboard') }}" class="{{ 'active' if current_path == '/' else '' }}">لوحة التحكم</a>
         <a href="{{ url_for('customers') }}" class="{{ 'active' if current_path.startswith('/customers') else '' }}">العملاء</a>
