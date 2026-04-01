@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MPP</title>
+  <style>
+    :root {
+      --bg: #eef2f4;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #5b6475;
+      --line: #d5dde4;
+      --primary: #0f766e;
+      --danger: #b91c1c;
+      --ok: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .topbar {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 10px;
+      padding-bottom: 120px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .title { margin: 0 0 8px; font-size: 18px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .grid2 { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+    .grid3 { display: grid; gap: 8px; grid-template-columns: 1fr 1fr 1fr; }
+    form { display: grid; gap: 8px; margin-top: 8px; }
+    input, select, button, textarea {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      width: 100%;
+      font: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    button { cursor: pointer; }
+    button.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    button.danger {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+    button.ghost { background: #fff; }
+    .tabs {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      margin-bottom: 10px;
+    }
+    .tab-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 8px;
+      font-size: 13px;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .list { display: grid; gap: 8px; }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fff;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      background: #e2e8f0;
+      display: inline-block;
+      margin-inline-start: 6px;
+    }
+    .stats {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .stat {
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+    #toast {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      color: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      display: none;
+      z-index: 200;
+      text-align: center;
+    }
+    #toast.ok { background: var(--ok); }
+    #toast.err { background: var(--danger); }
+    .hidden { display: none !important; }
+    @media (max-width: 780px) {
+      .grid2, .grid3, .tabs, .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span>MPP</span>
+    <span id="top-info" style="font-size:12px;opacity:.95">إعداد الاتصال مطلوب</span>
+  </div>
+
+  <div class="container">
+    <section id="setup-screen">
+      <div class="card">
+        <h2 class="title">إعداد الخادم</h2>
+        <p class="muted">أدخل رابط API (مثال: http://192.168.1.50:5000)</p>
+        <form id="base-url-form">
+          <input id="base-url-input" placeholder="http://IP:5000" />
+          <div class="grid2">
+            <button class="ghost" id="test-connection-btn" type="button">اختبار الاتصال</button>
+            <button class="primary" type="submit">حفظ ومتابعة</button>
+          </div>
+        </form>
+        <button class="ghost" id="setup-local-btn" type="button">استخدام التطبيق بدون خادم (وضع محلي)</button>
+        <p class="muted">ملاحظة: يجب أن يكون الهاتف والخادم على نفس الشبكة.</p>
+      </div>
+    </section>
+
+    <section id="login-screen" class="hidden">
+      <div class="card">
+        <h2 class="title">تسجيل دخول MPP API</h2>
+        <form id="login-form">
+          <input name="username" placeholder="اسم المستخدم" required />
+          <input name="password" type="password" placeholder="كلمة المرور" required />
+          <button class="primary" type="submit">دخول</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="app-screen" class="hidden">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="dashboard">الرئيسية</button>
+        <button class="tab-btn" data-tab="customers">العملاء</button>
+        <button class="tab-btn" data-tab="orders">الطلبات</button>
+        <button class="tab-btn" data-tab="more">المزيد</button>
+      </div>
+
+      <section id="dashboard" class="tab-view">
+        <div class="card">
+          <h3 class="title">لوحة المؤشرات</h3>
+          <div id="dashboard-stats" class="stats"></div>
+        </div>
+        <div class="card">
+          <h3 class="title">أحدث الطلبات</h3>
+          <div id="latest-orders" class="list"></div>
+        </div>
+      </section>
+
+      <section id="customers" class="tab-view hidden">
+        <div class="card">
+          <h3 class="title">إضافة عميل</h3>
+          <form id="customer-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم العميل" required />
+              <input name="phone" placeholder="الهاتف" />
+            </div>
+            <div class="grid2">
+              <input name="email" placeholder="البريد" />
+              <input name="company" placeholder="الشركة" />
+            </div>
+            <textarea name="notes" placeholder="ملاحظات"></textarea>
+            <button class="primary" type="submit">حفظ العميل</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="row">
+            <h3 class="title" style="margin:0">قائمة العملاء</h3>
+            <button class="ghost" id="refresh-customers-btn" type="button">تحديث</button>
+          </div>
+          <div id="customers-list" class="list"></div>
+        </div>
+      </section>
+
+      <section id="orders" class="tab-view hidden">
+        <div class="card">
+          <h3 class="title">إضافة طلب</h3>
+          <form id="order-form">
+            <select name="customer_id" id="order-customer-select" required></select>
+            <input name="title" placeholder="عنوان الطلب" required />
+            <div class="grid3">
+              <input name="quantity" type="number" min="1" placeholder="الكمية" required />
+              <input name="total_amount" type="number" step="0.01" placeholder="الإجمالي" required />
+              <select name="status">
+                <option value="pricing">التسعير</option>
+                <option value="design">التصميم</option>
+                <option value="paper_purchase">شراء الورق</option>
+                <option value="printing">الطباعة</option>
+                <option value="external_finishing">تشطيب خارجي</option>
+                <option value="internal_finishing">تشطيب داخلي</option>
+                <option value="quality_check">فحص الجودة</option>
+                <option value="ready_delivery">جاهز للتسليم</option>
+                <option value="delivered">تم التسليم</option>
+                <option value="cancelled">ملغي</option>
+              </select>
+            </div>
+            <button class="primary" type="submit">حفظ الطلب</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="row">
+            <h3 class="title" style="margin:0">قائمة الطلبات</h3>
+            <button class="ghost" id="refresh-orders-btn" type="button">تحديث</button>
+          </div>
+          <div id="orders-list" class="list"></div>
+        </div>
+      </section>
+
+      <section id="more" class="tab-view hidden">
+        <div class="card">
+          <h3 class="title">الموظفون</h3>
+          <form id="employee-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم الموظف" required />
+              <input name="email" placeholder="البريد" />
+            </div>
+            <select name="role">
+              <option value="user">مستخدم</option>
+              <option value="admin">مدير</option>
+              <option value="sales">مبيعات</option>
+              <option value="production">إنتاج</option>
+              <option value="designer">تصميم</option>
+              <option value="technician">فني</option>
+            </select>
+            <button class="primary" type="submit">إضافة موظف (مدير فقط)</button>
+          </form>
+          <div id="employees-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">الموردون</h3>
+          <form id="supplier-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم المورد" required />
+              <input name="phone" placeholder="الهاتف" />
+            </div>
+            <div class="grid2">
+              <input name="email" placeholder="البريد" />
+              <input name="supplier_type" placeholder="النوع (paper/ink/...)" />
+            </div>
+            <button class="primary" type="submit">إضافة مورد (مدير فقط)</button>
+          </form>
+          <div id="suppliers-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">المخزون</h3>
+          <form id="inventory-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم الصنف" required />
+              <input name="sku" placeholder="SKU" />
+            </div>
+            <div class="grid3">
+              <input name="category" placeholder="الفئة" />
+              <input name="unit" placeholder="الوحدة" />
+              <input name="quantity" type="number" placeholder="الكمية الابتدائية" />
+            </div>
+            <div class="grid2">
+              <input name="min_quantity" type="number" placeholder="حد أدنى" />
+              <input name="unit_cost" type="number" step="0.01" placeholder="تكلفة الوحدة" />
+            </div>
+            <button class="primary" type="submit">إضافة صنف (مدير فقط)</button>
+          </form>
+          <div id="inventory-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">الفواتير والمدفوعات</h3>
+          <form id="invoice-form">
+            <select name="customer_id" id="invoice-customer-select" required></select>
+            <div class="grid3">
+              <input name="subtotal" type="number" step="0.01" placeholder="المجموع الفرعي" required />
+              <input name="tax_amount" type="number" step="0.01" placeholder="الضريبة" required />
+              <input name="total" type="number" step="0.01" placeholder="الإجمالي" required />
+            </div>
+            <div class="grid2">
+              <select name="status">
+                <option value="draft">مسودة</option>
+                <option value="sent">مرسلة</option>
+                <option value="partial">مدفوعة جزئيا</option>
+                <option value="paid">مدفوعة</option>
+                <option value="overdue">متأخرة</option>
+                <option value="cancelled">ملغية</option>
+              </select>
+              <input name="due_date" placeholder="تاريخ الاستحقاق YYYY-MM-DD" />
+            </div>
+            <button class="primary" type="submit">إنشاء فاتورة</button>
+          </form>
+          <div id="invoices-list" class="list"></div>
+        </div>
+      </section>
+
+      <div class="card">
+        <div class="grid2">
+          <button class="ghost" id="reload-all-btn" type="button">تحديث كل البيانات</button>
+          <button class="danger" id="logout-btn" type="button">تسجيل خروج</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const KEY = "mpp_mobile_api_v1";
+    const state = Object.assign(
+      {
+        baseUrl: "",
+        localMode: false,
+        token: "",
+        user: null,
+        customers: [],
+        orders: [],
+        employees: [],
+        suppliers: [],
+        inventory: [],
+        invoices: [],
+        localDb: null,
+        stats: null,
+        latestOrders: [],
+      },
+      JSON.parse(localStorage.getItem(KEY) || "{}")
+    );
+
+    const byId = (id) => document.getElementById(id);
+    const saveState = () => localStorage.setItem(KEY, JSON.stringify(state));
+    const esc = (v) =>
+      String(v == null ? "" : v)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+    function toast(message, ok = true) {
+      const el = byId("toast");
+      el.textContent = message;
+      el.className = ok ? "ok" : "err";
+      el.style.display = "block";
+      setTimeout(() => (el.style.display = "none"), 2600);
+    }
+
+    function normalizeBaseUrl(url) {
+      return String(url || "").trim().replace(/\/+$/, "");
+    }
+
+    function createEmptyLocalDb() {
+      return {
+        customers: [],
+        orders: [],
+        employees: [
+          { id: 1, name: "مدير النظام", email: "admin@mpp.local", role: "admin", active: 1 },
+        ],
+        suppliers: [],
+        inventory: [],
+        invoices: [],
+        payments: [],
+        counters: {
+          customer: 1,
+          order: 1,
+          employee: 2,
+          supplier: 1,
+          inventory: 1,
+          invoice: 1,
+          payment: 1,
+        },
+      };
+    }
+
+    function ensureLocalDb() {
+      if (!state.localDb || typeof state.localDb !== "object") {
+        state.localDb = createEmptyLocalDb();
+      }
+      if (!state.localDb.counters) {
+        state.localDb.counters = createEmptyLocalDb().counters;
+      }
+      return state.localDb;
+    }
+
+    function localOrderNo(id) {
+      return `ORD-${String(id).padStart(4, "0")}`;
+    }
+
+    function localInvoiceNo(id) {
+      return `INV-${String(id).padStart(4, "0")}`;
+    }
+
+    function customerNameById(db, customerId) {
+      const c = db.customers.find((x) => x.id === customerId);
+      return c ? c.name : "غير معروف";
+    }
+
+    function localDashboardPayload() {
+      const db = ensureLocalDb();
+      const revenue = db.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const pending = db.invoices.filter((i) =>
+        ["draft", "sent", "partial", "overdue"].includes(String(i.status || ""))
+      ).length;
+      const lowStock = db.inventory.filter((i) => Number(i.quantity || 0) <= Number(i.min_quantity || 0)).length;
+      return {
+        success: true,
+        stats: {
+          customers: db.customers.length,
+          orders: db.orders.length,
+          employees: db.employees.length,
+          revenue,
+          suppliers: db.suppliers.length,
+          inventory_items: db.inventory.length,
+          low_stock_items: lowStock,
+          invoices: db.invoices.length,
+          pending_invoices: pending,
+        },
+        latest_orders: [...db.orders]
+          .sort((a, b) => b.id - a.id)
+          .slice(0, 10)
+          .map((o) => ({ ...o, customer_name: customerNameById(db, o.customer_id) })),
+      };
+    }
+
+    function localApi(path, options = {}) {
+      const method = String(options.method || "GET").toUpperCase();
+      const body = options.body || {};
+      const db = ensureLocalDb();
+
+      if (path === "/api/health" && method === "GET") {
+        return { success: true, status: "ok" };
+      }
+
+      if (path === "/api/auth/login" && method === "POST") {
+        const username = String(body.username || "").trim();
+        const password = String(body.password || "");
+        if (username === "admin" && password === "admin123") {
+          return {
+            success: true,
+            token: "local-token",
+            user: { id: 1, username: "admin", full_name: "مدير النظام", role: "admin" },
+          };
+        }
+        throw new Error("Invalid credentials");
+      }
+
+      if (path === "/api/auth/logout" && method === "POST") {
+        return { success: true };
+      }
+
+      if (path === "/api/dashboard" && method === "GET") {
+        return localDashboardPayload();
+      }
+
+      if (path === "/api/customers" && method === "GET") {
+        return { success: true, customers: [...db.customers].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/customers" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.customer++;
+        db.customers.push({
+          id,
+          name,
+          phone: String(body.phone || "").trim() || null,
+          email: String(body.email || "").trim() || null,
+          company: String(body.company || "").trim() || null,
+          notes: String(body.notes || "").trim() || null,
+        });
+        saveState();
+        return { success: true };
+      }
+      const delCustomerMatch = path.match(/^\/api\/customers\/(\d+)$/);
+      if (delCustomerMatch && method === "DELETE") {
+        const id = Number(delCustomerMatch[1]);
+        if (db.orders.some((o) => Number(o.customer_id) === id)) {
+          throw new Error("Cannot delete customer linked to orders");
+        }
+        db.customers = db.customers.filter((c) => c.id !== id);
+        saveState();
+        return { success: true };
+      }
+
+      if (path === "/api/orders" && method === "GET") {
+        return {
+          success: true,
+          orders: [...db.orders]
+            .sort((a, b) => b.id - a.id)
+            .map((o) => ({ ...o, customer_name: customerNameById(db, o.customer_id) })),
+        };
+      }
+      if (path === "/api/orders" && method === "POST") {
+        const customerId = Number(body.customer_id || 0);
+        if (!db.customers.some((c) => c.id === customerId)) throw new Error("customer not found");
+        const title = String(body.title || "").trim();
+        if (!title) throw new Error("title is required");
+        const id = db.counters.order++;
+        db.orders.push({
+          id,
+          order_no: localOrderNo(id),
+          customer_id: customerId,
+          title,
+          quantity: Number(body.quantity || 0),
+          total_amount: Number(body.total_amount || 0),
+          status: String(body.status || "pricing"),
+        });
+        saveState();
+        return { success: true };
+      }
+      const patchOrderMatch = path.match(/^\/api\/orders\/(\d+)\/status$/);
+      if (patchOrderMatch && method === "PATCH") {
+        const id = Number(patchOrderMatch[1]);
+        const row = db.orders.find((o) => o.id === id);
+        if (!row) throw new Error("order not found");
+        row.status = String(body.status || row.status);
+        saveState();
+        return { success: true, order: row };
+      }
+
+      if (path === "/api/employees" && method === "GET") {
+        return { success: true, employees: [...db.employees].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/employees" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.employee++;
+        db.employees.push({
+          id,
+          name,
+          email: String(body.email || "").trim() || null,
+          role: String(body.role || "user"),
+          active: 1,
+        });
+        saveState();
+        return { success: true };
+      }
+
+      if (path === "/api/suppliers" && method === "GET") {
+        return { success: true, suppliers: [...db.suppliers].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/suppliers" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.supplier++;
+        db.suppliers.push({
+          id,
+          name,
+          phone: String(body.phone || "").trim() || null,
+          email: String(body.email || "").trim() || null,
+          supplier_type: String(body.supplier_type || "other"),
+          active: 1,
+        });
+        saveState();
+        return { success: true };
+      }
+
+      if (path === "/api/inventory" && method === "GET") {
+        return { success: true, items: [...db.inventory].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/inventory" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.inventory++;
+        db.inventory.push({
+          id,
+          name,
+          sku: String(body.sku || "").trim() || null,
+          category: String(body.category || "other"),
+          unit: String(body.unit || "piece"),
+          quantity: Number(body.quantity || 0),
+          min_quantity: Number(body.min_quantity || 0),
+          unit_cost: Number(body.unit_cost || 0),
+          active: 1,
+        });
+        saveState();
+        return { success: true };
+      }
+      const movementMatch = path.match(/^\/api\/inventory\/(\d+)\/movement$/);
+      if (movementMatch && method === "POST") {
+        const id = Number(movementMatch[1]);
+        const row = db.inventory.find((i) => i.id === id);
+        if (!row) throw new Error("item not found");
+        const quantity = Number(body.quantity || 0);
+        if (quantity <= 0) throw new Error("quantity must be greater than zero");
+        const type = String(body.movement_type || "");
+        if (type === "in") row.quantity += quantity;
+        if (type === "out") {
+          if (row.quantity - quantity < 0) throw new Error("insufficient stock");
+          row.quantity -= quantity;
+        }
+        saveState();
+        return { success: true, item: row };
+      }
+
+      if (path === "/api/invoices" && method === "GET") {
+        return {
+          success: true,
+          invoices: [...db.invoices]
+            .sort((a, b) => b.id - a.id)
+            .map((i) => ({ ...i, customer_name: customerNameById(db, i.customer_id) })),
+        };
+      }
+      if (path === "/api/invoices" && method === "POST") {
+        const customerId = Number(body.customer_id || 0);
+        if (!db.customers.some((c) => c.id === customerId)) throw new Error("customer not found");
+        const id = db.counters.invoice++;
+        db.invoices.push({
+          id,
+          invoice_no: localInvoiceNo(id),
+          customer_id: customerId,
+          subtotal: Number(body.subtotal || 0),
+          tax_amount: Number(body.tax_amount || 0),
+          total: Number(body.total || 0),
+          paid_amount: 0,
+          status: String(body.status || "draft"),
+          due_date: String(body.due_date || "").trim() || null,
+        });
+        saveState();
+        return { success: true };
+      }
+      const paymentMatch = path.match(/^\/api\/invoices\/(\d+)\/payments$/);
+      if (paymentMatch && method === "POST") {
+        const invoiceId = Number(paymentMatch[1]);
+        const row = db.invoices.find((i) => i.id === invoiceId);
+        if (!row) throw new Error("invoice not found");
+        const amount = Number(body.amount || 0);
+        if (amount <= 0) throw new Error("amount must be greater than zero");
+        row.paid_amount = Number(row.paid_amount || 0) + amount;
+        if (row.paid_amount >= Number(row.total || 0)) row.status = "paid";
+        else if (row.paid_amount > 0) row.status = "partial";
+        saveState();
+        return { success: true, invoice: row };
+      }
+
+      throw new Error("Not found");
+    }
+
+    function setTopInfo() {
+      if (state.localMode) {
+        byId("top-info").textContent = "الوضع المحلي (بدون خادم)";
+        return;
+      }
+      if (!state.baseUrl) {
+        byId("top-info").textContent = "إعداد الاتصال مطلوب";
+        return;
+      }
+      const userText = state.user ? ` | ${state.user.full_name} (${state.user.role})` : "";
+      byId("top-info").textContent = `${state.baseUrl}${userText}`;
+    }
+
+    function showScreen(mode) {
+      byId("setup-screen").classList.toggle("hidden", mode !== "setup");
+      byId("login-screen").classList.toggle("hidden", mode !== "login");
+      byId("app-screen").classList.toggle("hidden", mode !== "app");
+    }
+
+    async function api(path, options = {}) {
+      if (state.localMode) {
+        return localApi(path, options);
+      }
+      if (!state.baseUrl) throw new Error("لم يتم ضبط رابط الخادم");
+      const headers = Object.assign(
+        { "Content-Type": "application/json" },
+        options.headers || {}
+      );
+      if (state.token) headers.Authorization = `Bearer ${state.token}`;
+
+      const response = await fetch(`${state.baseUrl}${path}`, {
+        method: options.method || "GET",
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success === false) {
+        const msg = payload.error || `HTTP ${response.status}`;
+        throw new Error(msg);
+      }
+      return payload;
+    }
+
+    async function testConnection() {
+      const url = normalizeBaseUrl(byId("base-url-input").value);
+      if (!url) {
+        toast("أدخل رابط الخادم", false);
+        return;
+      }
+      try {
+        const res = await fetch(`${url}/api/health`);
+        const data = await res.json();
+        if (!res.ok || data.status !== "ok") {
+          throw new Error("فشل الاختبار");
+        }
+        toast("الاتصال ناجح");
+      } catch (_err) {
+        toast("تعذر الوصول للخادم", false);
+      }
+    }
+
+    async function loadDashboard() {
+      const data = await api("/api/dashboard");
+      state.stats = data.stats || {};
+      state.latestOrders = data.latest_orders || [];
+      renderDashboard();
+      saveState();
+    }
+
+    async function loadAllLists() {
+      const [customers, orders, employees, suppliers, inventory, invoices] = await Promise.all([
+        api("/api/customers"),
+        api("/api/orders"),
+        api("/api/employees"),
+        api("/api/suppliers"),
+        api("/api/inventory"),
+        api("/api/invoices"),
+      ]);
+      state.customers = customers.customers || [];
+      state.orders = orders.orders || [];
+      state.employees = employees.employees || [];
+      state.suppliers = suppliers.suppliers || [];
+      state.inventory = inventory.items || [];
+      state.invoices = invoices.invoices || [];
+      saveState();
+      renderAllLists();
+    }
+
+    function fillCustomerSelects() {
+      const options = state.customers
+        .map((c) => `<option value="${c.id}">${esc(c.name)} (#${c.id})</option>`)
+        .join("");
+      byId("order-customer-select").innerHTML = options || "<option value=''>لا يوجد عملاء</option>";
+      byId("invoice-customer-select").innerHTML = options || "<option value=''>لا يوجد عملاء</option>";
+    }
+
+    function renderDashboard() {
+      const s = state.stats || {};
+      const statsItems = [
+        ["العملاء", s.customers || 0],
+        ["الطلبات", s.orders || 0],
+        ["الموظفون", s.employees || 0],
+        ["الإيراد", s.revenue || 0],
+        ["الموردون", s.suppliers || 0],
+        ["أصناف المخزون", s.inventory_items || 0],
+        ["منخفض المخزون", s.low_stock_items || 0],
+        ["الفواتير", s.invoices || 0],
+        ["فواتير معلقة", s.pending_invoices || 0],
+      ];
+      byId("dashboard-stats").innerHTML = statsItems
+        .map(([k, v]) => `<div class="stat"><div class="muted">${esc(k)}</div><strong>${esc(v)}</strong></div>`)
+        .join("");
+
+      byId("latest-orders").innerHTML = state.latestOrders.length
+        ? state.latestOrders
+            .map(
+              (o) =>
+                `<div class="item"><div><strong>${esc(o.order_no)}</strong> - ${esc(o.title)}</div><div class="muted">${esc(
+                  o.customer_name
+                )} | ${esc(o.status)} | ${esc(o.total_amount)}</div></div>`
+            )
+            .join("")
+        : "<div class='muted'>لا توجد طلبات حديثة</div>";
+    }
+
+    function renderCustomers() {
+      const el = byId("customers-list");
+      if (!state.customers.length) {
+        el.innerHTML = "<div class='muted'>لا يوجد عملاء</div>";
+        return;
+      }
+      el.innerHTML = state.customers
+        .map(
+          (c) => `
+            <div class="item">
+              <div class="row">
+                <div>
+                  <strong>${esc(c.name)}</strong>
+                  <div class="muted">${esc(c.phone || "-")} | ${esc(c.company || "-")}</div>
+                </div>
+                <button class="danger" data-del-customer="${c.id}" type="button">حذف</button>
+              </div>
+            </div>`
+        )
+        .join("");
+    }
+
+    function renderOrders() {
+      const el = byId("orders-list");
+      if (!state.orders.length) {
+        el.innerHTML = "<div class='muted'>لا يوجد طلبات</div>";
+        return;
+      }
+      el.innerHTML = state.orders
+        .map(
+          (o) => `
+            <div class="item">
+              <div><strong>${esc(o.order_no)}</strong> - ${esc(o.title)} <span class="badge">${esc(o.status)}</span></div>
+              <div class="muted">${esc(o.customer_name)} | كمية: ${esc(o.quantity)} | مبلغ: ${esc(o.total_amount)}</div>
+              <div class="grid2" style="margin-top:8px">
+                <select data-order-status="${o.id}">
+                  ${[
+                    "pricing",
+                    "design",
+                    "paper_purchase",
+                    "printing",
+                    "external_finishing",
+                    "internal_finishing",
+                    "quality_check",
+                    "ready_delivery",
+                    "delivered",
+                    "cancelled",
+                  ]
+                    .map((s) => `<option value="${s}" ${o.status === s ? "selected" : ""}>${s}</option>`)
+                    .join("")}
+                </select>
+                <button class="primary" data-save-order-status="${o.id}" type="button">تحديث الحالة</button>
+              </div>
+            </div>`
+        )
+        .join("");
+    }
+
+    function renderEmployees() {
+      byId("employees-list").innerHTML = state.employees.length
+        ? state.employees
+            .map(
+              (e) =>
+                `<div class="item"><strong>${esc(e.name)}</strong> <span class="badge">${esc(
+                  e.role
+                )}</span> <span class="badge">${e.active ? "نشط" : "معطل"}</span></div>`
+            )
+            .join("")
+        : "<div class='muted'>لا يوجد موظفون</div>";
+    }
+
+    function renderSuppliers() {
+      byId("suppliers-list").innerHTML = state.suppliers.length
+        ? state.suppliers
+            .map(
+              (s) =>
+                `<div class="item"><strong>${esc(s.name)}</strong> <span class="badge">${esc(
+                  s.supplier_type || "other"
+                )}</span><div class="muted">${esc(s.phone || "-")} | ${esc(s.email || "-")}</div></div>`
+            )
+            .join("")
+        : "<div class='muted'>لا يوجد موردون</div>";
+    }
+
+    function renderInventory() {
+      byId("inventory-list").innerHTML = state.inventory.length
+        ? state.inventory
+            .map(
+              (i) => `
+                <div class="item">
+                  <div><strong>${esc(i.name)}</strong> <span class="badge">${esc(i.sku || "-")}</span></div>
+                  <div class="muted">المخزون: ${esc(i.quantity)} | الحد الأدنى: ${esc(i.min_quantity)} | ${esc(i.unit || "")}</div>
+                  <div class="grid2" style="margin-top:8px">
+                    <button class="ghost" type="button" data-stock-in="${i.id}">+ إدخال 1</button>
+                    <button class="ghost" type="button" data-stock-out="${i.id}">- إخراج 1</button>
+                  </div>
+                </div>`
+            )
+            .join("")
+        : "<div class='muted'>لا توجد أصناف</div>";
+    }
+
+    function renderInvoices() {
+      byId("invoices-list").innerHTML = state.invoices.length
+        ? state.invoices
+            .map(
+              (i) => `
+                <div class="item">
+                  <div><strong>${esc(i.invoice_no)}</strong> <span class="badge">${esc(i.status)}</span></div>
+                  <div class="muted">${esc(i.customer_name)} | الإجمالي: ${esc(i.total)} | المدفوع: ${esc(i.paid_amount)}</div>
+                  <form data-pay-form="${i.id}" class="grid2" style="margin-top:8px">
+                    <input name="amount" type="number" step="0.01" min="0.01" placeholder="دفعة" required />
+                    <button class="primary" type="submit">إضافة دفعة</button>
+                  </form>
+                </div>`
+            )
+            .join("")
+        : "<div class='muted'>لا توجد فواتير</div>";
+    }
+
+    function renderAllLists() {
+      fillCustomerSelects();
+      renderCustomers();
+      renderOrders();
+      renderEmployees();
+      renderSuppliers();
+      renderInventory();
+      renderInvoices();
+    }
+
+    function bindTabs() {
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tab = btn.getAttribute("data-tab");
+          document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.querySelectorAll(".tab-view").forEach((v) => v.classList.add("hidden"));
+          byId(tab).classList.remove("hidden");
+        });
+      });
+    }
+
+    async function bootstrapAfterLogin() {
+      await Promise.all([loadDashboard(), loadAllLists()]);
+      showScreen("app");
+      setTopInfo();
+      toast("تم تسجيل الدخول");
+    }
+
+    byId("test-connection-btn").addEventListener("click", testConnection);
+
+    byId("base-url-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const baseUrl = normalizeBaseUrl(byId("base-url-input").value);
+      if (!baseUrl) {
+        toast("أدخل رابطًا أو استخدم الوضع المحلي", false);
+        return;
+      }
+      state.baseUrl = baseUrl;
+      state.localMode = false;
+      saveState();
+      setTopInfo();
+      toast("تم حفظ رابط الخادم");
+      showScreen("login");
+    });
+
+    byId("setup-local-btn").addEventListener("click", async () => {
+      state.localMode = true;
+      state.baseUrl = "";
+      state.token = "local-token";
+      state.user = { id: 1, username: "admin", full_name: "مدير النظام", role: "admin" };
+      ensureLocalDb();
+      saveState();
+      setTopInfo();
+      await bootstrapAfterLogin();
+    });
+
+    byId("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        const payload = await api("/api/auth/login", {
+          method: "POST",
+          body: {
+            username: String(data.get("username") || "").trim(),
+            password: String(data.get("password") || ""),
+          },
+        });
+        state.token = payload.token;
+        state.user = payload.user;
+        saveState();
+        await bootstrapAfterLogin();
+      } catch (err) {
+        toast(`فشل الدخول: ${err.message}`, false);
+      }
+    });
+
+    byId("customer-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/customers", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            phone: String(data.get("phone") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+            company: String(data.get("company") || "").trim(),
+            notes: String(data.get("notes") || "").trim(),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة العميل");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("customers-list").addEventListener("click", async (e) => {
+      const id = e.target.getAttribute("data-del-customer");
+      if (!id) return;
+      try {
+        await api(`/api/customers/${id}`, { method: "DELETE" });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم حذف العميل");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("order-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/orders", {
+          method: "POST",
+          body: {
+            customer_id: Number(data.get("customer_id")),
+            title: String(data.get("title") || "").trim(),
+            quantity: Number(data.get("quantity") || 0),
+            total_amount: Number(data.get("total_amount") || 0),
+            status: String(data.get("status") || "pricing"),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم إنشاء الطلب");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("orders-list").addEventListener("click", async (e) => {
+      const id = e.target.getAttribute("data-save-order-status");
+      if (!id) return;
+      const select = document.querySelector(`[data-order-status="${id}"]`);
+      try {
+        await api(`/api/orders/${id}/status`, {
+          method: "PATCH",
+          body: { status: select.value },
+        });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم تحديث الحالة");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("employee-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/employees", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+            role: String(data.get("role") || "user"),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        toast("تمت إضافة الموظف");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("supplier-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/suppliers", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            phone: String(data.get("phone") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+            supplier_type: String(data.get("supplier_type") || "other").trim() || "other",
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة المورد");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("inventory-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/inventory", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            sku: String(data.get("sku") || "").trim(),
+            category: String(data.get("category") || "other").trim() || "other",
+            unit: String(data.get("unit") || "piece").trim() || "piece",
+            quantity: Number(data.get("quantity") || 0),
+            min_quantity: Number(data.get("min_quantity") || 0),
+            unit_cost: Number(data.get("unit_cost") || 0),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة الصنف");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("inventory-list").addEventListener("click", async (e) => {
+      const plusId = e.target.getAttribute("data-stock-in");
+      const minusId = e.target.getAttribute("data-stock-out");
+      const id = plusId || minusId;
+      if (!id) return;
+      const movement = plusId ? "in" : "out";
+      try {
+        await api(`/api/inventory/${id}/movement`, {
+          method: "POST",
+          body: { movement_type: movement, quantity: 1, reason: "mobile quick action" },
+        });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم تسجيل حركة المخزون");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("invoice-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/invoices", {
+          method: "POST",
+          body: {
+            customer_id: Number(data.get("customer_id")),
+            subtotal: Number(data.get("subtotal") || 0),
+            tax_amount: Number(data.get("tax_amount") || 0),
+            total: Number(data.get("total") || 0),
+            status: String(data.get("status") || "draft"),
+            due_date: String(data.get("due_date") || "").trim(),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم إنشاء الفاتورة");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("invoices-list").addEventListener("submit", async (e) => {
+      const invoiceId = e.target.getAttribute("data-pay-form");
+      if (!invoiceId) return;
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api(`/api/invoices/${invoiceId}/payments`, {
+          method: "POST",
+          body: {
+            amount: Number(data.get("amount") || 0),
+            payment_method: "cash",
+          },
+        });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة الدفعة");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("reload-all-btn").addEventListener("click", async () => {
+      try {
+        await Promise.all([loadDashboard(), loadAllLists()]);
+        toast("تم تحديث البيانات");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("refresh-customers-btn").addEventListener("click", async () => {
+      try {
+        const res = await api("/api/customers");
+        state.customers = res.customers || [];
+        saveState();
+        renderCustomers();
+        fillCustomerSelects();
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("refresh-orders-btn").addEventListener("click", async () => {
+      try {
+        const res = await api("/api/orders");
+        state.orders = res.orders || [];
+        saveState();
+        renderOrders();
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("logout-btn").addEventListener("click", async () => {
+      try {
+        if (state.token) {
+          await api("/api/auth/logout", { method: "POST" });
+        }
+      } catch (_err) {
+      } finally {
+        state.token = "";
+        state.user = null;
+        saveState();
+        setTopInfo();
+        showScreen("login");
+        toast("تم تسجيل الخروج");
+      }
+    });
+
+    function init() {
+      bindTabs();
+      byId("base-url-input").value = state.baseUrl || "";
+      setTopInfo();
+
+      if (state.localMode) {
+        if (!state.token) {
+          state.token = "local-token";
+          state.user = { id: 1, username: "admin", full_name: "مدير النظام", role: "admin" };
+          ensureLocalDb();
+          saveState();
+        }
+        showScreen("app");
+        renderAllLists();
+        renderDashboard();
+        bootstrapAfterLogin().catch((err) => toast(err.message, false));
+        return;
+      }
+
+      if (!state.baseUrl) {
+        showScreen("setup");
+        return;
+      }
+      if (!state.token) {
+        showScreen("login");
+        return;
+      }
+
+      showScreen("app");
+      renderAllLists();
+      renderDashboard();
+      bootstrapAfterLogin().catch((err) => {
+        toast(`انتهت الجلسة: ${err.message}`, false);
+        state.token = "";
+        state.user = null;
+        saveState();
+        showScreen("login");
+        setTopInfo();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

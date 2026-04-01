@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MPP{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #0f766e;
+      --primary-2: #115e59;
+      --danger: #b91c1c;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Tahoma, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    .nav {
+      background: #0b1020;
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .nav h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .nav .links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px;
+    }
+    .nav a.active { background: rgba(255,255,255,0.15); }
+    .container {
+      max-width: 1100px;
+      margin: 16px auto;
+      padding: 0 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .grid {
+      display: grid;
+      gap: 10px;
+    }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (max-width: 900px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) { .grid-2, .grid-4 { grid-template-columns: 1fr; } }
+    .stat {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    h2 { margin: 0 0 8px; font-size: 18px; }
+    h3 { margin: 0 0 6px; font-size: 16px; }
+    form .row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 900px) { form .row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) { form .row { grid-template-columns: 1fr; } }
+    input, select, textarea, button {
+      width: 100%;
+      font: inherit;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 9px 10px;
+      background: #fff;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: var(--primary-2); }
+    .btn-danger { background: var(--danger); }
+    .btn-outline {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+      text-align: right;
+      vertical-align: top;
+    }
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      display: inline-block;
+      background: #e5e7eb;
+    }
+    .badge.ok { background: #dcfce7; color: #166534; }
+    .badge.warn { background: #fef3c7; color: #92400e; }
+    .badge.danger { background: #fee2e2; color: #991b1b; }
+    .flash-wrap { margin-bottom: 10px; }
+    .flash {
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .flash.success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .flash.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  </style>
+</head>
+<body>
+  {% if session.get("user_id") %}
+    <div class="nav">
+      <h1>MPP</h1>
+      <div class="links">
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if current_path == '/' else '' }}">لوحة التحكم</a>
+        <a href="{{ url_for('customers') }}" class="{{ 'active' if current_path.startswith('/customers') else '' }}">العملاء</a>
+        <a href="{{ url_for('orders') }}" class="{{ 'active' if current_path.startswith('/orders') else '' }}">الطلبات</a>
+        <a href="{{ url_for('employees') }}" class="{{ 'active' if current_path.startswith('/employees') else '' }}">الموظفون</a>
+        <a href="{{ url_for('logout') }}">تسجيل الخروج</a>
+      </div>
+    </div>
+  {% endif %}
+  <div class="container">
+    <div class="flash-wrap">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+    {% block body %}{% endblock %}
+  </div>
+</body>
+</html>

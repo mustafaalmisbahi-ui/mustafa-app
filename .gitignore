@@ -12,3 +12,16 @@ ENV/
 
 # Other potentially sensitive files
 *.sqlite3
+
+# Android SDK / local build artifacts
+android-sdk/
+android-cmdline-tools.zip
+*.apk
+
+# Capacitor mobile project generated files
+mpp_apk/node_modules/
+mpp_apk/android/.gradle/
+mpp_apk/android/build/
+mpp_apk/android/app/build/
+mpp_apk/android/local.properties
+mpp_apk/android/app/src/main/assets/public/

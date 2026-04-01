@@ -1,9 +1,0 @@
-{
-  "query": "CREATE TABLE `exchangeRates` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`fromCurrency` varchar(5) NOT NULL DEFAULT 'YER',\n\t`toCurrency` varchar(5) NOT NULL,\n\t`rate` decimal(12,4) NOT NULL,\n\t`updatedBy` int,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `exchangeRates_id` PRIMARY KEY(`id`)\n);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4MBvjb22zsTLGjv.root --database nZ3PMMgYbyq8w7M3TYvKBC --execute CREATE TABLE `exchangeRates` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`fromCurrency` varchar(5) NOT NULL DEFAULT 'YER',\n\t`toCurrency` varchar(5) NOT NULL,\n\t`rate` decimal(12,4) NOT NULL,\n\t`updatedBy` int,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `exchangeRates_id` PRIMARY KEY(`id`)\n);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 109
-}
