@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}العملاء{% endblock %}
+
+{% block content %}
+<section class="stats-grid">
+    <article class="card">
+        <h3>إجمالي العملاء</h3>
+        <p class="metric">{{ customer_stats.total }}</p>
+    </article>
+    <article class="card">
+        <h3>العملاء النشطون</h3>
+        <p class="metric">{{ customer_stats.active }}</p>
+    </article>
+    <article class="card">
+        <h3>لديهم رصيد افتتاحي</h3>
+        <p class="metric">{{ customer_stats.with_balance }}</p>
+    </article>
+</section>
+
+<section class="card">
+    <div class="table-actions">
+        <div>
+            <h2 class="table-title">قائمة العملاء</h2>
+            <p class="muted">الشاشة الرئيسية مخصصة لإدارة العملاء.</p>
+        </div>
+        <a class="btn btn-primary" href="#add-customer-form">+ إضافة عميل</a>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>اسم العميل</th>
+                    <th>الهاتف</th>
+                    <th>العنوان</th>
+                    <th>الرصيد الافتتاحي</th>
+                    <th>ملاحظات</th>
+                    <th>تاريخ الإضافة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                <tr>
+                    <td>{{ customer.id }}</td>
+                    <td>{{ customer.name }}</td>
+                    <td>{{ customer.phone or "-" }}</td>
+                    <td>{{ customer.address or "-" }}</td>
+                    <td>{{ "%.2f"|format(customer.opening_balance) }}</td>
+                    <td>{{ customer.note or "-" }}</td>
+                    <td>{{ customer.created_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty-state">لا يوجد عملاء حتى الآن.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card" id="add-customer-form">
+    <h2>إضافة عميل جديد</h2>
+    <form method="post" action="{{ url_for('web.add_customer') }}" class="form-grid">
+        <label>
+            اسم العميل
+            <input type="text" name="full_name" required>
+        </label>
+        <label>
+            رقم الهاتف
+            <input type="text" name="phone" placeholder="اختياري">
+        </label>
+        <label>
+            العنوان
+            <input type="text" name="address" placeholder="اختياري">
+        </label>
+        <label>
+            رصيد افتتاحي
+            <input type="number" name="opening_balance" min="0" step="0.01" value="0">
+        </label>
+        <label class="full-width">
+            ملاحظات
+            <input type="text" name="notes" placeholder="اختياري">
+        </label>
+        <label>
+            حالة العميل
+            <select name="is_active">
+                <option value="1" selected>نشط</option>
+                <option value="0">غير نشط</option>
+            </select>
+        </label>
+        <button type="submit" class="btn">حفظ العميل</button>
+    </form>
+</section>
+{% endblock %}

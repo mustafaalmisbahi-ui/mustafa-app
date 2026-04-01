@@ -102,6 +102,15 @@ body {
     background: rgba(255, 255, 255, 0.28);
 }
 
+.main-nav .add-link {
+    background: rgba(34, 197, 94, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.main-nav .add-link:hover {
+    background: rgba(34, 197, 94, 0.35);
+}
+
 .page-header h2 {
     margin: 0 0 0.5rem;
 }
@@ -287,6 +296,41 @@ button[type="submit"]:hover {
 
 .table-title {
     margin: 0;
+}
+
+.customers-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 360px) 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+.customers-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.customers-count {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.customer-balance-positive {
+    color: var(--danger);
+    font-weight: 700;
+}
+
+.customer-balance-negative {
+    color: var(--success);
+    font-weight: 700;
+}
+
+@media (max-width: 900px) {
+    .customers-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 .btn-secondary {

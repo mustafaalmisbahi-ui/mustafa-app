@@ -8,7 +8,7 @@ from flask import Blueprint, Response, current_app, flash, redirect, render_temp
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models import Debt, Purchase, Sale
+from app.models import Customer, Debt, Purchase, Sale
 from app.services import calculate_dashboard_metrics, debt_summary
 
 web_bp = Blueprint("web", __name__)
@@ -32,6 +32,10 @@ def _parse_date(value: str | None):
 
 def _parse_datetime(value: str | None) -> datetime:
     if not value:
+        return datetime.utcnow()
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
         return datetime.utcnow()
 
 
@@ -64,13 +68,41 @@ def _apply_sort(query, model, sort_key: str, remaining_expr):
     if sort_key == "remaining_asc":
         return query.order_by(remaining_expr.asc(), model.created_at.desc())
     return query.order_by(model.created_at.desc())
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return datetime.utcnow()
 
 
-@web_bp.route("/")
+@web_bp.route("/", methods=["GET"])
+@web_bp.route("/customers", methods=["GET"])
+def customers():
+    customer_rows = Customer.query.order_by(Customer.created_at.desc()).all()
+    return render_template("customers.html", customers=customer_rows)
+
+
+@web_bp.route("/customers/add", methods=["POST"])
+def add_customer():
+    name = (request.form.get("name") or "").strip()
+    phone = (request.form.get("phone") or "").strip() or None
+    note = (request.form.get("note") or "").strip() or None
+
+    if not name:
+        flash("اسم العميل مطلوب.", "error")
+        return redirect(url_for("web.customers"))
+
+    if Customer.query.filter_by(name=name).first():
+        flash("اسم العميل موجود مسبقًا.", "error")
+        return redirect(url_for("web.customers"))
+
+    customer = Customer(
+        name=name,
+        phone=phone,
+        note=note,
+    )
+    db.session.add(customer)
+    db.session.commit()
+    flash("تمت إضافة العميل بنجاح.", "success")
+    return redirect(url_for("web.customers"))
+
+
+@web_bp.route("/dashboard")
 def dashboard():
     sales = Sale.query.order_by(Sale.created_at.desc()).limit(5).all()
     purchases = Purchase.query.order_by(Purchase.created_at.desc()).limit(5).all()

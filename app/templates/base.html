@@ -15,7 +15,7 @@
                 <span>دفتر الحسابات المنتظم</span>
             </h1>
             <nav class="main-nav">
-                <a href="{{ url_for('web.dashboard') }}" class="{% if request.endpoint == 'web.dashboard' %}active{% endif %}">لوحة التحكم</a>
+                <a href="{{ url_for('web.dashboard') }}" class="{% if request.endpoint == 'web.dashboard' %}active{% endif %}">العملاء</a>
                 <a href="{{ url_for('web.sales') }}" class="{% if request.endpoint == 'web.sales' %}active{% endif %}">المبيعات</a>
                 <a href="{{ url_for('web.purchases') }}" class="{% if request.endpoint == 'web.purchases' %}active{% endif %}">المشتريات</a>
                 <a href="{{ url_for('web.debts') }}" class="{% if request.endpoint == 'web.debts' %}active{% endif %}">الديون</a>
