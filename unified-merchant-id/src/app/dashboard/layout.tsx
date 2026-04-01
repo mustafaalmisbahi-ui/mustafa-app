@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Building2, Home, Store, UserCircle2 } from "lucide-react";
+import { Building2, Home, Search, Store, UserCircle2 } from "lucide-react";
 import { requireAdminSession } from "@/lib/auth";
 import { LogoutButton } from "@/components/dashboard/logout-button";
-import { SearchBox } from "@/components/dashboard/search-box";
+import { GlobalSearchForm } from "@/components/dashboard/global-search-form";
 
 export default async function DashboardLayout({
   children,
@@ -25,7 +25,7 @@ export default async function DashboardLayout({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <SearchBox basePath="/dashboard/merchants" compact />
+            <GlobalSearchForm />
             <div className="hidden items-center gap-1 rounded-lg border bg-background px-3 py-2 text-sm md:flex">
               <UserCircle2 className="size-4 text-muted-foreground" />
               <span>{admin.username}</span>
@@ -50,6 +50,13 @@ export default async function DashboardLayout({
             >
               <Building2 className="size-4" />
               <span>التجار</span>
+            </Link>
+            <Link
+              href="/dashboard/search"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted"
+            >
+              <Search className="size-4" />
+              <span>البحث الشامل</span>
             </Link>
           </nav>
         </aside>
