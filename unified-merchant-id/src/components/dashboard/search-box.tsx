@@ -19,6 +19,7 @@ type SearchBoxProps = {
   status?: string;
   city?: string;
   cityOptions?: string[];
+  compact?: boolean;
 };
 
 export function SearchBox({
@@ -27,6 +28,7 @@ export function SearchBox({
   status = "all",
   city = "all",
   cityOptions = [],
+  compact = false,
 }: SearchBoxProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,8 +36,33 @@ export function SearchBox({
   function updateParams(mutator: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams.toString());
     mutator(next);
+    // Any filter/search change should reset list pagination to page 1.
+    next.delete("page");
     const qs = next.toString();
     router.replace(qs ? `${basePath ?? ""}?${qs}` : basePath ?? "");
+  }
+
+  if (compact) {
+    return (
+      <div className="relative w-full min-w-[220px] max-w-sm">
+        <SearchIcon className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          defaultValue={query}
+          placeholder="بحث سريع"
+          className="pr-9"
+          onChange={(event) => {
+            const value = event.target.value.trim();
+            updateParams((next) => {
+              if (value) {
+                next.set("q", value);
+              } else {
+                next.delete("q");
+              }
+            });
+          }}
+        />
+      </div>
+    );
   }
 
   return (

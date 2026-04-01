@@ -11,8 +11,8 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary/10 p-2 text-primary">
               <Store className="size-5" />
@@ -24,8 +24,8 @@ export default async function DashboardLayout({
               <h1 className="text-lg font-semibold">Unified Merchant ID</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <SearchBox basePath="/dashboard/merchants" />
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchBox basePath="/dashboard/merchants" compact />
             <div className="hidden items-center gap-1 rounded-lg border bg-background px-3 py-2 text-sm md:flex">
               <UserCircle2 className="size-4 text-muted-foreground" />
               <span>{admin.username}</span>

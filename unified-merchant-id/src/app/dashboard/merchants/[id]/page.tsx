@@ -36,10 +36,26 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 
 export default async function MerchantDetailsPage(props: PageProps<"/dashboard/merchants/[id]">) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
+  const rawBranchQuery = searchParams.branchQ;
+  const branchQuery =
+    typeof rawBranchQuery === "string"
+      ? rawBranchQuery.trim()
+      : Array.isArray(rawBranchQuery)
+        ? (rawBranchQuery[0] ?? "").trim()
+        : "";
   const merchant = await getMerchantById(params.id);
   if (!merchant) {
     notFound();
   }
+
+  const filteredBranches = branchQuery
+    ? merchant.branches.filter((branch) =>
+        `${branch.branchCode} ${branch.branchName} ${branch.city} ${branch.district}`
+          .toLowerCase()
+          .includes(branchQuery.toLowerCase()),
+      )
+    : merchant.branches;
 
   return (
     <div className="space-y-6">
@@ -124,7 +140,23 @@ export default async function MerchantDetailsPage(props: PageProps<"/dashboard/m
       </Card>
 
       <div className="space-y-4">
-        {merchant.branches.map((branch) => (
+        <Card>
+          <CardContent className="pt-6">
+            <form className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <input
+                type="text"
+                name="branchQ"
+                defaultValue={branchQuery}
+                placeholder="بحث داخل الفروع (بالاسم أو الرمز أو الموقع)"
+                className="h-10 rounded-md border px-3 text-sm"
+              />
+              <Button type="submit" variant="outline">
+                بحث
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        {filteredBranches.map((branch) => (
           <Card key={branch.id}>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -241,6 +273,13 @@ export default async function MerchantDetailsPage(props: PageProps<"/dashboard/m
             </CardContent>
           </Card>
         ))}
+        {filteredBranches.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              لا توجد فروع مطابقة لبحثك.
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
 
       <Card>

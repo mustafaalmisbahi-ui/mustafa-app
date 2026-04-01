@@ -7,79 +7,35 @@ import {
   walletSchema,
 } from "@/lib/schemas";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import {
   BRANCH_UPDATE_THRESHOLD_DAYS,
-  BRANCH_STATUSES,
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ADMIN_USERNAME,
   MERCHANT_CODE_PREFIX,
-  MERCHANT_STATUSES,
-  WALLET_STATUSES,
 } from "@/lib/constants";
 import {
+  clearLoginAttempts,
   clearSessionCookie,
   createSession,
   deleteSessionByRawToken,
+  getLoginLockStatus,
   hashPassword,
+  recordFailedLogin,
   readSessionToken,
   requireAdminSession,
   setSessionCookie,
   verifyPassword,
 } from "@/lib/auth";
-
-type MerchantStatus = (typeof MERCHANT_STATUSES)[number];
-type BranchStatus = (typeof BRANCH_STATUSES)[number];
-type WalletStatus = (typeof WALLET_STATUSES)[number];
-
-type CreateMerchantInput = {
-  storeName: string;
-  ownerName: string;
-  phone: string;
-  city: string;
-  district: string;
-  businessType: string;
-  address: string;
-  status: MerchantStatus;
-  notes?: string;
-};
-
-type UpdateMerchantInput = CreateMerchantInput;
-
-type CreateBranchInput = {
-  merchantId: string;
-  branchName: string;
-  city: string;
-  district: string;
-  locationDescription: string;
-  status: BranchStatus;
-  notes?: string;
-};
-
-type UpdateBranchInput = {
-  branchName: string;
-  city: string;
-  district: string;
-  locationDescription: string;
-  status: BranchStatus;
-  notes?: string;
-};
-
-type CreateWalletInput = {
-  branchId: string;
-  walletProviderName: string;
-  walletNumber: string;
-  accountName?: string;
-  status: WalletStatus;
-  notes?: string;
-};
-
-type UpdateWalletInput = {
-  walletProviderName: string;
-  walletNumber: string;
-  accountName?: string;
-  status: WalletStatus;
-  notes?: string;
-};
+import type {
+  CreateBranchInput,
+  CreateMerchantInput,
+  CreateWalletInput,
+  MerchantStatus,
+  UpdateBranchInput,
+  UpdateMerchantInput,
+  UpdateWalletInput,
+} from "@/lib/domains/types";
 
 export type MerchantWithRelations = NonNullable<
   Awaited<ReturnType<typeof getMerchantById>>
@@ -118,12 +74,19 @@ export async function ensureDefaultAdmin() {
 }
 
 export async function loginAdmin(formData: FormData): Promise<void> {
+  const username = String(formData.get("username") ?? "");
+  const lockStatus = getLoginLockStatus(username);
+  if (lockStatus.locked) {
+    redirect("/login?error=locked");
+  }
+
   const parsed = loginSchema.safeParse({
-    username: formData.get("username"),
+    username,
     password: formData.get("password"),
   });
 
   if (!parsed.success) {
+    recordFailedLogin(username);
     redirect("/login?error=1");
   }
 
@@ -133,14 +96,17 @@ export async function loginAdmin(formData: FormData): Promise<void> {
   });
 
   if (!admin) {
+    recordFailedLogin(parsed.data.username);
     redirect("/login?error=1");
   }
 
   const ok = await verifyPassword(parsed.data.password, admin.passwordHash);
   if (!ok) {
+    recordFailedLogin(parsed.data.username);
     redirect("/login?error=1");
   }
 
+  clearLoginAttempts(parsed.data.username);
   const session = await createSession(admin.id);
   await setSessionCookie(session.rawToken);
   redirect("/dashboard");
@@ -200,33 +166,45 @@ export async function listMerchants(params?: {
   query?: string;
   status?: string;
   city?: string;
+  page?: number;
+  pageSize?: number;
 }) {
   await requireAdminSession();
   const query = params?.query?.trim();
+  const pageSize = Math.min(Math.max(params?.pageSize ?? 10, 5), 50);
+  const page = Math.max(params?.page ?? 1, 1);
+  const skip = (page - 1) * pageSize;
 
-  const merchants = await prisma.merchant.findMany({
-    where: {
-      ...(query
-        ? {
-            OR: [
-              { merchantCode: { contains: query } },
-              { storeName: { contains: query } },
-              { phone: { contains: query } },
-            ],
-          }
-        : {}),
-      ...(params?.status && params.status !== "all"
-        ? { status: params.status as MerchantStatus }
-        : {}),
-      ...(params?.city && params.city !== "all" ? { city: params.city } : {}),
-    },
-    include: {
-      _count: {
-        select: { branches: true },
+  const where: Prisma.MerchantWhereInput = {
+    ...(query
+      ? {
+          OR: [
+            { merchantCode: { contains: query } },
+            { storeName: { contains: query } },
+            { phone: { contains: query } },
+          ],
+        }
+      : {}),
+    ...(params?.status && params.status !== "all"
+      ? { status: params.status as MerchantStatus }
+      : {}),
+    ...(params?.city && params.city !== "all" ? { city: params.city } : {}),
+  };
+
+  const [merchants, total] = await Promise.all([
+    prisma.merchant.findMany({
+      where,
+      include: {
+        _count: {
+          select: { branches: true },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.merchant.count({ where }),
+  ]);
 
   const cities = await prisma.merchant.findMany({
     select: { city: true },
@@ -234,7 +212,16 @@ export async function listMerchants(params?: {
     orderBy: { city: "asc" },
   });
 
-  return { merchants, cities: cities.map((c) => c.city) };
+  return {
+    merchants,
+    cities: cities.map((c) => c.city),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+  };
 }
 
 export async function getMerchantById(merchantId: string) {

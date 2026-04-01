@@ -23,7 +23,7 @@ export function CashierCard({
   branch: BranchRow;
 }) {
   return (
-    <section className="rounded-xl border bg-white p-6 text-black shadow-sm print:rounded-none print:border-none print:p-0 print:shadow-none">
+    <section className="rounded-xl border bg-white p-6 text-black shadow-sm print:break-inside-avoid print:rounded-lg print:border print:p-4 print:shadow-none">
       <header className="mb-4 border-b pb-3 text-right">
         <h1 className="text-2xl font-bold">بطاقة تشغيل</h1>
         <p className="mt-2 text-sm text-gray-600">{storeName}</p>

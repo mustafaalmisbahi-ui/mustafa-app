@@ -20,13 +20,24 @@ export default async function MerchantsPage({
     q?: string;
     status?: string;
     city?: string;
+    page?: string;
   }>;
 }) {
   const params = await searchParams;
   const q = params.q ?? "";
   const status = params.status ?? "all";
   const city = params.city ?? "all";
-  const data = await listMerchants({ query: q, status, city });
+  const page = Number(params.page ?? "1");
+  const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+  const pageSize = 10;
+  const data = await listMerchants({
+    query: q,
+    status,
+    city,
+    page: safePage,
+    pageSize,
+  });
+  const pagination = data.pagination;
 
   return (
     <div className="space-y-6">
@@ -87,6 +98,42 @@ export default async function MerchantsPage({
               ))}
             </TableBody>
           </Table>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              صفحة {pagination.page} من {pagination.totalPages} - إجمالي النتائج:{" "}
+              {pagination.total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+              >
+                <Link
+                  href={`/dashboard/merchants?q=${encodeURIComponent(q)}&status=${status}&city=${city}&page=${Math.max(1, pagination.page - 1)}`}
+                  aria-disabled={pagination.page <= 1}
+                  tabIndex={pagination.page <= 1 ? -1 : undefined}
+                >
+                  السابق
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= pagination.totalPages}
+              >
+                <Link
+                  href={`/dashboard/merchants?q=${encodeURIComponent(q)}&status=${status}&city=${city}&page=${Math.min(pagination.totalPages, pagination.page + 1)}`}
+                  aria-disabled={pagination.page >= pagination.totalPages}
+                  tabIndex={pagination.page >= pagination.totalPages ? -1 : undefined}
+                >
+                  التالي
+                </Link>
+              </Button>
+            </div>
+          </div>
           {data.merchants.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               لا توجد نتائج مطابقة.

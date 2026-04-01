@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { WALLET_STATUSES } from "@/lib/constants";
 import type { ActionResult } from "@/actions/merchant";
+import { walletStatusLabel } from "@/lib/format";
 
 type WalletFormProps = {
   action: (prevState: ActionResult, formData: FormData) => Promise<ActionResult>;
@@ -20,6 +21,8 @@ type WalletFormProps = {
     notes?: string | null;
   };
 };
+
+const providerPresets = ["Mobile Money", "Jawali", "One Cash", "Floosak"];
 
 const statusLabel: Record<(typeof WALLET_STATUSES)[number], string> = {
   active: "نشط",
@@ -44,7 +47,13 @@ export function WalletForm({ action, submitLabel, defaultValues }: WalletFormPro
           name="walletProviderName"
           defaultValue={defaultValues?.walletProviderName ?? ""}
           required
+          list={`wallet-provider-preset-${defaultValues?.walletNumber ?? "new"}`}
         />
+        <datalist id={`wallet-provider-preset-${defaultValues?.walletNumber ?? "new"}`}>
+          {providerPresets.map((provider) => (
+            <option key={provider} value={provider} />
+          ))}
+        </datalist>
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`walletNumber-${defaultValues?.walletNumber ?? "new"}`}>رقم المحفظة</Label>
@@ -74,7 +83,7 @@ export function WalletForm({ action, submitLabel, defaultValues }: WalletFormPro
           <SelectContent>
             {WALLET_STATUSES.map((status) => (
               <SelectItem key={status} value={status}>
-                {statusLabel[status]}
+                {walletStatusLabel(status) ?? statusLabel[status]}
               </SelectItem>
             ))}
           </SelectContent>

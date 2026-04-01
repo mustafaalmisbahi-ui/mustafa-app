@@ -4,7 +4,12 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
-import { AUTH_COOKIE_NAME, SESSION_DURATION_MS } from "@/lib/constants";
+import {
+  AUTH_COOKIE_NAME,
+  SESSION_DURATION_MS,
+  MAX_LOGIN_ATTEMPTS,
+  LOGIN_LOCK_DURATION_MS,
+} from "@/lib/constants";
 
 export function hashToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");
@@ -125,4 +130,58 @@ export function safeStringEquals(a: string, b: string): boolean {
   const bBuf = Buffer.from(b);
   if (aBuf.length !== bBuf.length) return false;
   return timingSafeEqual(aBuf, bBuf);
+}
+
+type AttemptState = {
+  count: number;
+  firstAt: number;
+  lockedUntil?: number;
+};
+
+const attemptStore = new Map<string, AttemptState>();
+
+function getAttemptKey(username: string) {
+  return `login:${username.toLowerCase().trim()}`;
+}
+
+export function getLoginLockStatus(username: string) {
+  const key = getAttemptKey(username);
+  const state = attemptStore.get(key);
+  if (!state) return { locked: false as const };
+  if (!state.lockedUntil) return { locked: false as const };
+  if (state.lockedUntil <= Date.now()) {
+    attemptStore.delete(key);
+    return { locked: false as const };
+  }
+  return {
+    locked: true as const,
+    remainingMs: state.lockedUntil - Date.now(),
+  };
+}
+
+export function recordFailedLogin(username: string) {
+  const key = getAttemptKey(username);
+  const now = Date.now();
+  const state = attemptStore.get(key);
+
+  if (!state || now - state.firstAt > LOGIN_LOCK_DURATION_MS) {
+    attemptStore.set(key, { count: 1, firstAt: now });
+    return;
+  }
+
+  const nextCount = state.count + 1;
+  if (nextCount >= MAX_LOGIN_ATTEMPTS) {
+    attemptStore.set(key, {
+      count: nextCount,
+      firstAt: state.firstAt,
+      lockedUntil: now + LOGIN_LOCK_DURATION_MS,
+    });
+    return;
+  }
+
+  attemptStore.set(key, { ...state, count: nextCount });
+}
+
+export function clearLoginAttempts(username: string) {
+  attemptStore.delete(getAttemptKey(username));
 }

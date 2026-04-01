@@ -11,11 +11,11 @@ const statusLabel: Record<StatusValue, string> = {
 };
 
 const statusClass: Record<StatusValue, string> = {
-  active: "bg-emerald-100 text-emerald-800",
-  inactive: "bg-zinc-100 text-zinc-700",
-  pending_update: "bg-amber-100 text-amber-800",
-  draft: "bg-sky-100 text-sky-800",
-  temporary: "bg-violet-100 text-violet-800",
+  active: "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/60",
+  inactive: "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200/60",
+  pending_update: "bg-amber-100 text-amber-800 ring-1 ring-amber-200/60",
+  draft: "bg-sky-100 text-sky-800 ring-1 ring-sky-200/60",
+  temporary: "bg-violet-100 text-violet-800 ring-1 ring-violet-200/60",
 };
 
 export function StatusBadge({ status }: { status: StatusValue }) {

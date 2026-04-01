@@ -41,7 +41,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 id="password"
                 name="password"
                 type="password"
-                defaultValue="admin123"
                 required
               />
             </div>

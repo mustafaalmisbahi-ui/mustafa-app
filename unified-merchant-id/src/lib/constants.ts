@@ -6,6 +6,9 @@ export const MERCHANT_CODE_PREFIX = "M";
 
 export const DEFAULT_ADMIN_USERNAME = "admin";
 export const DEFAULT_ADMIN_PASSWORD = "admin123";
+export const MAX_LOGIN_ATTEMPTS = 5;
+export const LOGIN_LOCK_DURATION_MS = 1000 * 60 * 15;
+export const LOGIN_LOCK_KEY_PREFIX = "login_lock:";
 
 export const MERCHANT_STATUSES = [
   "active",
