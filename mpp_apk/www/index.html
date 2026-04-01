@@ -157,12 +157,13 @@
         <h2 class="title">إعداد الخادم</h2>
         <p class="muted">أدخل رابط API (مثال: http://192.168.1.50:5000)</p>
         <form id="base-url-form">
-          <input id="base-url-input" placeholder="http://IP:5000" required />
+          <input id="base-url-input" placeholder="http://IP:5000" />
           <div class="grid2">
             <button class="ghost" id="test-connection-btn" type="button">اختبار الاتصال</button>
             <button class="primary" type="submit">حفظ ومتابعة</button>
           </div>
         </form>
+        <button class="ghost" id="setup-local-btn" type="button">استخدام التطبيق بدون خادم (وضع محلي)</button>
         <p class="muted">ملاحظة: يجب أن يكون الهاتف والخادم على نفس الشبكة.</p>
       </div>
     </section>
@@ -356,6 +357,7 @@
     const state = Object.assign(
       {
         baseUrl: "",
+        localMode: false,
         token: "",
         user: null,
         customers: [],
@@ -364,6 +366,7 @@
         suppliers: [],
         inventory: [],
         invoices: [],
+        localDb: null,
         stats: null,
         latestOrders: [],
       },
@@ -390,7 +393,297 @@
       return String(url || "").trim().replace(/\/+$/, "");
     }
 
+    function createEmptyLocalDb() {
+      return {
+        customers: [],
+        orders: [],
+        employees: [
+          { id: 1, name: "مدير النظام", email: "admin@mpp.local", role: "admin", active: 1 },
+        ],
+        suppliers: [],
+        inventory: [],
+        invoices: [],
+        payments: [],
+        counters: {
+          customer: 1,
+          order: 1,
+          employee: 2,
+          supplier: 1,
+          inventory: 1,
+          invoice: 1,
+          payment: 1,
+        },
+      };
+    }
+
+    function ensureLocalDb() {
+      if (!state.localDb || typeof state.localDb !== "object") {
+        state.localDb = createEmptyLocalDb();
+      }
+      if (!state.localDb.counters) {
+        state.localDb.counters = createEmptyLocalDb().counters;
+      }
+      return state.localDb;
+    }
+
+    function localOrderNo(id) {
+      return `ORD-${String(id).padStart(4, "0")}`;
+    }
+
+    function localInvoiceNo(id) {
+      return `INV-${String(id).padStart(4, "0")}`;
+    }
+
+    function customerNameById(db, customerId) {
+      const c = db.customers.find((x) => x.id === customerId);
+      return c ? c.name : "غير معروف";
+    }
+
+    function localDashboardPayload() {
+      const db = ensureLocalDb();
+      const revenue = db.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const pending = db.invoices.filter((i) =>
+        ["draft", "sent", "partial", "overdue"].includes(String(i.status || ""))
+      ).length;
+      const lowStock = db.inventory.filter((i) => Number(i.quantity || 0) <= Number(i.min_quantity || 0)).length;
+      return {
+        success: true,
+        stats: {
+          customers: db.customers.length,
+          orders: db.orders.length,
+          employees: db.employees.length,
+          revenue,
+          suppliers: db.suppliers.length,
+          inventory_items: db.inventory.length,
+          low_stock_items: lowStock,
+          invoices: db.invoices.length,
+          pending_invoices: pending,
+        },
+        latest_orders: [...db.orders]
+          .sort((a, b) => b.id - a.id)
+          .slice(0, 10)
+          .map((o) => ({ ...o, customer_name: customerNameById(db, o.customer_id) })),
+      };
+    }
+
+    function localApi(path, options = {}) {
+      const method = String(options.method || "GET").toUpperCase();
+      const body = options.body || {};
+      const db = ensureLocalDb();
+
+      if (path === "/api/health" && method === "GET") {
+        return { success: true, status: "ok" };
+      }
+
+      if (path === "/api/auth/login" && method === "POST") {
+        const username = String(body.username || "").trim();
+        const password = String(body.password || "");
+        if (username === "admin" && password === "admin123") {
+          return {
+            success: true,
+            token: "local-token",
+            user: { id: 1, username: "admin", full_name: "مدير النظام", role: "admin" },
+          };
+        }
+        throw new Error("Invalid credentials");
+      }
+
+      if (path === "/api/auth/logout" && method === "POST") {
+        return { success: true };
+      }
+
+      if (path === "/api/dashboard" && method === "GET") {
+        return localDashboardPayload();
+      }
+
+      if (path === "/api/customers" && method === "GET") {
+        return { success: true, customers: [...db.customers].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/customers" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.customer++;
+        db.customers.push({
+          id,
+          name,
+          phone: String(body.phone || "").trim() || null,
+          email: String(body.email || "").trim() || null,
+          company: String(body.company || "").trim() || null,
+          notes: String(body.notes || "").trim() || null,
+        });
+        saveState();
+        return { success: true };
+      }
+      const delCustomerMatch = path.match(/^\/api\/customers\/(\d+)$/);
+      if (delCustomerMatch && method === "DELETE") {
+        const id = Number(delCustomerMatch[1]);
+        if (db.orders.some((o) => Number(o.customer_id) === id)) {
+          throw new Error("Cannot delete customer linked to orders");
+        }
+        db.customers = db.customers.filter((c) => c.id !== id);
+        saveState();
+        return { success: true };
+      }
+
+      if (path === "/api/orders" && method === "GET") {
+        return {
+          success: true,
+          orders: [...db.orders]
+            .sort((a, b) => b.id - a.id)
+            .map((o) => ({ ...o, customer_name: customerNameById(db, o.customer_id) })),
+        };
+      }
+      if (path === "/api/orders" && method === "POST") {
+        const customerId = Number(body.customer_id || 0);
+        if (!db.customers.some((c) => c.id === customerId)) throw new Error("customer not found");
+        const title = String(body.title || "").trim();
+        if (!title) throw new Error("title is required");
+        const id = db.counters.order++;
+        db.orders.push({
+          id,
+          order_no: localOrderNo(id),
+          customer_id: customerId,
+          title,
+          quantity: Number(body.quantity || 0),
+          total_amount: Number(body.total_amount || 0),
+          status: String(body.status || "pricing"),
+        });
+        saveState();
+        return { success: true };
+      }
+      const patchOrderMatch = path.match(/^\/api\/orders\/(\d+)\/status$/);
+      if (patchOrderMatch && method === "PATCH") {
+        const id = Number(patchOrderMatch[1]);
+        const row = db.orders.find((o) => o.id === id);
+        if (!row) throw new Error("order not found");
+        row.status = String(body.status || row.status);
+        saveState();
+        return { success: true, order: row };
+      }
+
+      if (path === "/api/employees" && method === "GET") {
+        return { success: true, employees: [...db.employees].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/employees" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.employee++;
+        db.employees.push({
+          id,
+          name,
+          email: String(body.email || "").trim() || null,
+          role: String(body.role || "user"),
+          active: 1,
+        });
+        saveState();
+        return { success: true };
+      }
+
+      if (path === "/api/suppliers" && method === "GET") {
+        return { success: true, suppliers: [...db.suppliers].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/suppliers" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.supplier++;
+        db.suppliers.push({
+          id,
+          name,
+          phone: String(body.phone || "").trim() || null,
+          email: String(body.email || "").trim() || null,
+          supplier_type: String(body.supplier_type || "other"),
+          active: 1,
+        });
+        saveState();
+        return { success: true };
+      }
+
+      if (path === "/api/inventory" && method === "GET") {
+        return { success: true, items: [...db.inventory].sort((a, b) => b.id - a.id) };
+      }
+      if (path === "/api/inventory" && method === "POST") {
+        const name = String(body.name || "").trim();
+        if (!name) throw new Error("name is required");
+        const id = db.counters.inventory++;
+        db.inventory.push({
+          id,
+          name,
+          sku: String(body.sku || "").trim() || null,
+          category: String(body.category || "other"),
+          unit: String(body.unit || "piece"),
+          quantity: Number(body.quantity || 0),
+          min_quantity: Number(body.min_quantity || 0),
+          unit_cost: Number(body.unit_cost || 0),
+          active: 1,
+        });
+        saveState();
+        return { success: true };
+      }
+      const movementMatch = path.match(/^\/api\/inventory\/(\d+)\/movement$/);
+      if (movementMatch && method === "POST") {
+        const id = Number(movementMatch[1]);
+        const row = db.inventory.find((i) => i.id === id);
+        if (!row) throw new Error("item not found");
+        const quantity = Number(body.quantity || 0);
+        if (quantity <= 0) throw new Error("quantity must be greater than zero");
+        const type = String(body.movement_type || "");
+        if (type === "in") row.quantity += quantity;
+        if (type === "out") {
+          if (row.quantity - quantity < 0) throw new Error("insufficient stock");
+          row.quantity -= quantity;
+        }
+        saveState();
+        return { success: true, item: row };
+      }
+
+      if (path === "/api/invoices" && method === "GET") {
+        return {
+          success: true,
+          invoices: [...db.invoices]
+            .sort((a, b) => b.id - a.id)
+            .map((i) => ({ ...i, customer_name: customerNameById(db, i.customer_id) })),
+        };
+      }
+      if (path === "/api/invoices" && method === "POST") {
+        const customerId = Number(body.customer_id || 0);
+        if (!db.customers.some((c) => c.id === customerId)) throw new Error("customer not found");
+        const id = db.counters.invoice++;
+        db.invoices.push({
+          id,
+          invoice_no: localInvoiceNo(id),
+          customer_id: customerId,
+          subtotal: Number(body.subtotal || 0),
+          tax_amount: Number(body.tax_amount || 0),
+          total: Number(body.total || 0),
+          paid_amount: 0,
+          status: String(body.status || "draft"),
+          due_date: String(body.due_date || "").trim() || null,
+        });
+        saveState();
+        return { success: true };
+      }
+      const paymentMatch = path.match(/^\/api\/invoices\/(\d+)\/payments$/);
+      if (paymentMatch && method === "POST") {
+        const invoiceId = Number(paymentMatch[1]);
+        const row = db.invoices.find((i) => i.id === invoiceId);
+        if (!row) throw new Error("invoice not found");
+        const amount = Number(body.amount || 0);
+        if (amount <= 0) throw new Error("amount must be greater than zero");
+        row.paid_amount = Number(row.paid_amount || 0) + amount;
+        if (row.paid_amount >= Number(row.total || 0)) row.status = "paid";
+        else if (row.paid_amount > 0) row.status = "partial";
+        saveState();
+        return { success: true, invoice: row };
+      }
+
+      throw new Error("Not found");
+    }
+
     function setTopInfo() {
+      if (state.localMode) {
+        byId("top-info").textContent = "الوضع المحلي (بدون خادم)";
+        return;
+      }
       if (!state.baseUrl) {
         byId("top-info").textContent = "إعداد الاتصال مطلوب";
         return;
@@ -406,6 +699,9 @@
     }
 
     async function api(path, options = {}) {
+      if (state.localMode) {
+        return localApi(path, options);
+      }
       if (!state.baseUrl) throw new Error("لم يتم ضبط رابط الخادم");
       const headers = Object.assign(
         { "Content-Type": "application/json" },
@@ -663,14 +959,26 @@
       e.preventDefault();
       const baseUrl = normalizeBaseUrl(byId("base-url-input").value);
       if (!baseUrl) {
-        toast("الرابط مطلوب", false);
+        toast("أدخل رابطًا أو استخدم الوضع المحلي", false);
         return;
       }
       state.baseUrl = baseUrl;
+      state.localMode = false;
       saveState();
       setTopInfo();
       toast("تم حفظ رابط الخادم");
       showScreen("login");
+    });
+
+    byId("setup-local-btn").addEventListener("click", async () => {
+      state.localMode = true;
+      state.baseUrl = "";
+      state.token = "local-token";
+      state.user = { id: 1, username: "admin", full_name: "مدير النظام", role: "admin" };
+      ensureLocalDb();
+      saveState();
+      setTopInfo();
+      await bootstrapAfterLogin();
     });
 
     byId("login-form").addEventListener("submit", async (e) => {
@@ -952,6 +1260,20 @@
       bindTabs();
       byId("base-url-input").value = state.baseUrl || "";
       setTopInfo();
+
+      if (state.localMode) {
+        if (!state.token) {
+          state.token = "local-token";
+          state.user = { id: 1, username: "admin", full_name: "مدير النظام", role: "admin" };
+          ensureLocalDb();
+          saveState();
+        }
+        showScreen("app");
+        renderAllLists();
+        renderDashboard();
+        bootstrapAfterLogin().catch((err) => toast(err.message, false));
+        return;
+      }
 
       if (!state.baseUrl) {
         showScreen("setup");
