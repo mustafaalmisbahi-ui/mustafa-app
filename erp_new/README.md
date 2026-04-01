@@ -6,10 +6,14 @@
 
 - واجهة ويب أساسية (لوحة، عملاء، طلبات، موظفين)
 - API JSON جاهز لتطبيق الهاتف
-- تسجيل دخول API عبر Session
+- تسجيل دخول API عبر Bearer Token
 - إدارة العملاء عبر API
 - إدارة الطلبات عبر API + تغيير الحالة
 - إدارة الموظفين عبر API (إضافة + تفعيل/تعطيل)
+- إدارة الموردين عبر API
+- إدارة المخزون وحركات المخزون عبر API
+- إدارة الفواتير والمدفوعات عبر API
+- CORS مفعّل لتطبيقات الهاتف
 - لوحة إحصائيات API
 
 ## المسارات المهمة
@@ -34,7 +38,17 @@
 - `PATCH /api/orders/<id>/status`
 - `GET /api/employees`
 - `POST /api/employees`
-- `PATCH /api/employees/<id>/toggle`
+- `PATCH /api/employees/<id>/active`
+- `GET /api/suppliers`
+- `POST /api/suppliers`
+- `PATCH /api/suppliers/<id>/active`
+- `GET /api/inventory`
+- `POST /api/inventory`
+- `POST /api/inventory/<id>/movement`
+- `GET /api/invoices`
+- `POST /api/invoices`
+- `POST /api/payments`
+- `GET /api/mobile/bootstrap`
 
 ## التشغيل
 
@@ -51,6 +65,11 @@ python3 app.py
 ```bash
 python3 api_test.py
 ```
+
+## ملاحظات للموبايل
+- استخدم Header التالي لكل طلب (بعد تسجيل الدخول):
+  - `Authorization: Bearer <token>`
+- عند بناء Flutter/React Native استخدم base URL لنفس الخادم.
 
 ## بيانات الدخول الافتراضية
 - username: `admin`

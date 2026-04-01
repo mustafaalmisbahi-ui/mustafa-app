@@ -33,11 +33,21 @@ ORDER_STATUS_CHOICES = [
 ]
 ORDER_STATUS_KEYS = {choice[0] for choice in ORDER_STATUS_CHOICES}
 ROLE_CHOICES = {"admin", "sales", "production", "designer", "technician", "user"}
+INVOICE_STATUS_CHOICES = {"draft", "sent", "partial", "paid", "overdue", "cancelled"}
+PAYMENT_METHOD_CHOICES = {"cash", "bank_transfer", "check", "other"}
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("ERP_SECRET_KEY", "change-me-in-production")
+
+    @app.after_request
+    def apply_cors_headers(response):
+        # Allow phone apps and web clients to call the API.
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+        return response
 
     def get_db() -> sqlite3.Connection:
         if "db" not in g:
@@ -97,6 +107,76 @@ def create_app() -> Flask:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT,
+                email TEXT,
+                supplier_type TEXT DEFAULT 'other',
+                notes TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS inventory_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sku TEXT UNIQUE,
+                category TEXT DEFAULT 'other',
+                unit TEXT DEFAULT 'piece',
+                quantity INTEGER NOT NULL DEFAULT 0,
+                min_quantity INTEGER NOT NULL DEFAULT 0,
+                unit_cost REAL NOT NULL DEFAULT 0,
+                supplier_id INTEGER,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(supplier_id) REFERENCES suppliers(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS inventory_movements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id INTEGER NOT NULL,
+                movement_type TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                reason TEXT,
+                created_by INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(item_id) REFERENCES inventory_items(id),
+                FOREIGN KEY(created_by) REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS invoices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_no TEXT UNIQUE NOT NULL,
+                customer_id INTEGER NOT NULL,
+                order_id INTEGER,
+                subtotal REAL NOT NULL DEFAULT 0,
+                tax_amount REAL NOT NULL DEFAULT 0,
+                total REAL NOT NULL DEFAULT 0,
+                paid_amount REAL NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'draft',
+                due_date TEXT,
+                notes TEXT,
+                created_by INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(customer_id) REFERENCES customers(id),
+                FOREIGN KEY(order_id) REFERENCES orders(id),
+                FOREIGN KEY(created_by) REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                payment_method TEXT NOT NULL DEFAULT 'cash',
+                reference_no TEXT,
+                notes TEXT,
+                created_by INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(invoice_id) REFERENCES invoices(id),
+                FOREIGN KEY(created_by) REFERENCES users(id)
+            );
+
             CREATE TABLE IF NOT EXISTS api_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -120,6 +200,12 @@ def create_app() -> Flask:
                 ("admin", generate_password_hash("admin123"), "مدير النظام", "admin"),
             )
             db.commit()
+
+    def next_invoice_no() -> str:
+        db = get_db()
+        row = db.execute("SELECT MAX(id) AS max_id FROM invoices").fetchone()
+        next_id = (row["max_id"] or 0) + 1
+        return f"INV-{next_id:04d}"
 
     def login_required(view):
         @wraps(view)
@@ -153,6 +239,10 @@ def create_app() -> Flask:
 
     def json_error(message: str, status_code: int):
         return jsonify({"success": False, "error": message}), status_code
+
+    @app.route("/api/<path:_rest>", methods=["OPTIONS"])
+    def api_options(_rest: str):
+        return ("", 204)
 
     def create_api_token(user_id: int) -> str:
         token = secrets.token_urlsafe(32)
@@ -310,6 +400,15 @@ def create_app() -> Flask:
             "orders": db.execute("SELECT COUNT(*) AS c FROM orders").fetchone()["c"],
             "employees": db.execute("SELECT COUNT(*) AS c FROM employees").fetchone()["c"],
             "revenue": db.execute("SELECT COALESCE(SUM(total_amount), 0) AS s FROM orders").fetchone()["s"],
+            "suppliers": db.execute("SELECT COUNT(*) AS c FROM suppliers").fetchone()["c"],
+            "inventory_items": db.execute("SELECT COUNT(*) AS c FROM inventory_items").fetchone()["c"],
+            "low_stock_items": db.execute(
+                "SELECT COUNT(*) AS c FROM inventory_items WHERE active = 1 AND quantity <= min_quantity"
+            ).fetchone()["c"],
+            "invoices": db.execute("SELECT COUNT(*) AS c FROM invoices").fetchone()["c"],
+            "pending_invoices": db.execute(
+                "SELECT COUNT(*) AS c FROM invoices WHERE status IN ('draft','sent','partial','overdue')"
+            ).fetchone()["c"],
         }
         latest_orders = db.execute(
             """
@@ -325,6 +424,44 @@ def create_app() -> Flask:
                 "success": True,
                 "stats": stats,
                 "latest_orders": [row_to_dict(r) for r in latest_orders],
+            }
+        )
+
+    @app.get("/api/bootstrap")
+    @api_auth_required
+    def api_bootstrap():
+        db = get_db()
+        customers = db.execute("SELECT * FROM customers ORDER BY id DESC LIMIT 30").fetchall()
+        suppliers = db.execute("SELECT * FROM suppliers ORDER BY id DESC LIMIT 30").fetchall()
+        inventory = db.execute("SELECT * FROM inventory_items ORDER BY id DESC LIMIT 50").fetchall()
+        orders = db.execute(
+            """
+            SELECT o.*, c.name AS customer_name
+            FROM orders o
+            JOIN customers c ON c.id = o.customer_id
+            ORDER BY o.id DESC
+            LIMIT 30
+            """
+        ).fetchall()
+        invoices = db.execute(
+            """
+            SELECT i.*, c.name AS customer_name
+            FROM invoices i
+            JOIN customers c ON c.id = i.customer_id
+            ORDER BY i.id DESC
+            LIMIT 30
+            """
+        ).fetchall()
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "customers": [row_to_dict(r) for r in customers],
+                    "suppliers": [row_to_dict(r) for r in suppliers],
+                    "inventory_items": [row_to_dict(r) for r in inventory],
+                    "orders": [row_to_dict(r) for r in orders],
+                    "invoices": [row_to_dict(r) for r in invoices],
+                },
             }
         )
 
@@ -586,6 +723,299 @@ def create_app() -> Flask:
             (user_id,),
         ).fetchone()
         return jsonify({"success": True, "user": row_to_dict(user)})
+
+    @app.get("/api/suppliers")
+    @api_auth_required
+    def api_suppliers_list():
+        db = get_db()
+        q = str(request.args.get("q", "")).strip()
+        if q:
+            rows = db.execute(
+                """
+                SELECT * FROM suppliers
+                WHERE name LIKE ? OR phone LIKE ? OR email LIKE ?
+                ORDER BY id DESC
+                """,
+                (f"%{q}%", f"%{q}%", f"%{q}%"),
+            ).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM suppliers ORDER BY id DESC").fetchall()
+        return jsonify({"success": True, "suppliers": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/suppliers")
+    @api_admin_required
+    def api_suppliers_create():
+        payload = request.get_json(silent=True) or {}
+        name = str(payload.get("name", "")).strip()
+        if not name:
+            return json_error("name is required", 400)
+
+        phone = str(payload.get("phone", "")).strip() or None
+        email = str(payload.get("email", "")).strip() or None
+        supplier_type = str(payload.get("supplier_type", "other")).strip() or "other"
+        notes = str(payload.get("notes", "")).strip() or None
+        active = 1 if bool(payload.get("active", True)) else 0
+
+        db = get_db()
+        cur = db.execute(
+            """
+            INSERT INTO suppliers (name, phone, email, supplier_type, notes, active)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (name, phone, email, supplier_type, notes, active),
+        )
+        db.commit()
+        created = db.execute("SELECT * FROM suppliers WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return jsonify({"success": True, "supplier": row_to_dict(created)}), 201
+
+    @app.patch("/api/suppliers/<int:supplier_id>/active")
+    @api_admin_required
+    def api_suppliers_set_active(supplier_id: int):
+        payload = request.get_json(silent=True) or {}
+        if "active" not in payload:
+            return json_error("active field is required", 400)
+        active = 1 if bool(payload.get("active")) else 0
+
+        db = get_db()
+        cur = db.execute("UPDATE suppliers SET active = ? WHERE id = ?", (active, supplier_id))
+        db.commit()
+        if cur.rowcount == 0:
+            return json_error("supplier not found", 404)
+        row = db.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,)).fetchone()
+        return jsonify({"success": True, "supplier": row_to_dict(row)})
+
+    @app.get("/api/inventory")
+    @api_auth_required
+    def api_inventory_list():
+        db = get_db()
+        category = str(request.args.get("category", "")).strip()
+        if category:
+            rows = db.execute(
+                "SELECT * FROM inventory_items WHERE category = ? ORDER BY id DESC",
+                (category,),
+            ).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM inventory_items ORDER BY id DESC").fetchall()
+        return jsonify({"success": True, "items": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/inventory")
+    @api_admin_required
+    def api_inventory_create():
+        payload = request.get_json(silent=True) or {}
+        name = str(payload.get("name", "")).strip()
+        if not name:
+            return json_error("name is required", 400)
+
+        sku = str(payload.get("sku", "")).strip() or None
+        category = str(payload.get("category", "other")).strip() or "other"
+        unit = str(payload.get("unit", "piece")).strip() or "piece"
+        quantity = int(payload.get("quantity", 0) or 0)
+        min_quantity = int(payload.get("min_quantity", 0) or 0)
+        unit_cost = float(payload.get("unit_cost", 0) or 0)
+        supplier_id = payload.get("supplier_id")
+        supplier_id = int(supplier_id) if supplier_id is not None else None
+        active = 1 if bool(payload.get("active", True)) else 0
+
+        db = get_db()
+        try:
+            cur = db.execute(
+                """
+                INSERT INTO inventory_items (name, sku, category, unit, quantity, min_quantity, unit_cost, supplier_id, active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (name, sku, category, unit, quantity, min_quantity, unit_cost, supplier_id, active),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            return json_error("sku already exists", 409)
+
+        created = db.execute("SELECT * FROM inventory_items WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return jsonify({"success": True, "item": row_to_dict(created)}), 201
+
+    @app.post("/api/inventory/<int:item_id>/movement")
+    @api_auth_required
+    def api_inventory_add_movement(item_id: int):
+        payload = request.get_json(silent=True) or {}
+        movement_type = str(payload.get("movement_type", "")).strip()
+        if movement_type not in {"in", "out"}:
+            return json_error("movement_type must be in or out", 400)
+        quantity = int(payload.get("quantity", 0) or 0)
+        if quantity <= 0:
+            return json_error("quantity must be greater than zero", 400)
+        reason = str(payload.get("reason", "")).strip() or None
+
+        db = get_db()
+        item = db.execute("SELECT * FROM inventory_items WHERE id = ?", (item_id,)).fetchone()
+        if item is None:
+            return json_error("item not found", 404)
+
+        current_qty = int(item["quantity"] or 0)
+        new_qty = current_qty + quantity if movement_type == "in" else current_qty - quantity
+        if new_qty < 0:
+            return json_error("insufficient stock", 409)
+
+        db.execute(
+            "INSERT INTO inventory_movements (item_id, movement_type, quantity, reason, created_by) VALUES (?, ?, ?, ?, ?)",
+            (item_id, movement_type, quantity, reason, g.api_user["id"]),
+        )
+        db.execute("UPDATE inventory_items SET quantity = ? WHERE id = ?", (new_qty, item_id))
+        db.commit()
+
+        updated = db.execute("SELECT * FROM inventory_items WHERE id = ?", (item_id,)).fetchone()
+        return jsonify({"success": True, "item": row_to_dict(updated)})
+
+    @app.get("/api/inventory/movements")
+    @api_auth_required
+    def api_inventory_movements():
+        item_id = request.args.get("item_id")
+        db = get_db()
+        if item_id:
+            rows = db.execute(
+                "SELECT * FROM inventory_movements WHERE item_id = ? ORDER BY id DESC LIMIT 200",
+                (int(item_id),),
+            ).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM inventory_movements ORDER BY id DESC LIMIT 200").fetchall()
+        return jsonify({"success": True, "movements": [row_to_dict(r) for r in rows]})
+
+    @app.get("/api/invoices")
+    @api_auth_required
+    def api_invoices_list():
+        status = str(request.args.get("status", "")).strip()
+        db = get_db()
+        query = """
+            SELECT i.*, c.name AS customer_name
+            FROM invoices i
+            JOIN customers c ON c.id = i.customer_id
+        """
+        params = []
+        if status:
+            query += " WHERE i.status = ?"
+            params.append(status)
+        query += " ORDER BY i.id DESC"
+        rows = db.execute(query, tuple(params)).fetchall()
+        return jsonify({"success": True, "invoices": [row_to_dict(r) for r in rows]})
+
+    @app.post("/api/invoices")
+    @api_auth_required
+    def api_invoices_create():
+        payload = request.get_json(silent=True) or {}
+        try:
+            customer_id = int(payload.get("customer_id"))
+            subtotal = float(payload.get("subtotal", 0) or 0)
+            tax_amount = float(payload.get("tax_amount", 0) or 0)
+            total = float(payload.get("total", 0) or 0)
+        except (TypeError, ValueError):
+            return json_error("customer_id, subtotal, tax_amount, total must be valid numbers", 400)
+
+        order_id = payload.get("order_id")
+        order_id = int(order_id) if order_id is not None else None
+        status = str(payload.get("status", "draft")).strip() or "draft"
+        if status not in INVOICE_STATUS_CHOICES:
+            return json_error("invalid invoice status", 400)
+        due_date = str(payload.get("due_date", "")).strip() or None
+        notes = str(payload.get("notes", "")).strip() or None
+
+        db = get_db()
+        cust = db.execute("SELECT id FROM customers WHERE id = ?", (customer_id,)).fetchone()
+        if cust is None:
+            return json_error("customer not found", 404)
+        if order_id is not None:
+            ord_row = db.execute("SELECT id FROM orders WHERE id = ?", (order_id,)).fetchone()
+            if ord_row is None:
+                return json_error("order not found", 404)
+
+        cur = db.execute(
+            """
+            INSERT INTO invoices (invoice_no, customer_id, order_id, subtotal, tax_amount, total, status, due_date, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                next_invoice_no(),
+                customer_id,
+                order_id,
+                subtotal,
+                tax_amount,
+                total,
+                status,
+                due_date,
+                notes,
+                g.api_user["id"],
+            ),
+        )
+        db.commit()
+        created = db.execute(
+            """
+            SELECT i.*, c.name AS customer_name
+            FROM invoices i
+            JOIN customers c ON c.id = i.customer_id
+            WHERE i.id = ?
+            """,
+            (cur.lastrowid,),
+        ).fetchone()
+        return jsonify({"success": True, "invoice": row_to_dict(created)}), 201
+
+    @app.post("/api/invoices/<int:invoice_id>/payments")
+    @api_auth_required
+    def api_invoice_add_payment(invoice_id: int):
+        payload = request.get_json(silent=True) or {}
+        try:
+            amount = float(payload.get("amount", 0) or 0)
+        except (TypeError, ValueError):
+            return json_error("amount must be a valid number", 400)
+        if amount <= 0:
+            return json_error("amount must be greater than zero", 400)
+
+        payment_method = str(payload.get("payment_method", "cash")).strip() or "cash"
+        if payment_method not in PAYMENT_METHOD_CHOICES:
+            return json_error("invalid payment_method", 400)
+
+        reference_no = str(payload.get("reference_no", "")).strip() or None
+        notes = str(payload.get("notes", "")).strip() or None
+
+        db = get_db()
+        invoice = db.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+        if invoice is None:
+            return json_error("invoice not found", 404)
+
+        db.execute(
+            """
+            INSERT INTO payments (invoice_id, amount, payment_method, reference_no, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (invoice_id, amount, payment_method, reference_no, notes, g.api_user["id"]),
+        )
+
+        new_paid = float(invoice["paid_amount"] or 0) + amount
+        total = float(invoice["total"] or 0)
+        if new_paid >= total:
+            new_status = "paid"
+        elif new_paid > 0:
+            new_status = "partial"
+        else:
+            new_status = invoice["status"]
+
+        db.execute(
+            "UPDATE invoices SET paid_amount = ?, status = ? WHERE id = ?",
+            (new_paid, new_status, invoice_id),
+        )
+        db.commit()
+
+        updated = db.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+        return jsonify({"success": True, "invoice": row_to_dict(updated)})
+
+    @app.get("/api/invoices/<int:invoice_id>/payments")
+    @api_auth_required
+    def api_invoice_payments_list(invoice_id: int):
+        db = get_db()
+        invoice = db.execute("SELECT id FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+        if invoice is None:
+            return json_error("invoice not found", 404)
+        rows = db.execute(
+            "SELECT * FROM payments WHERE invoice_id = ? ORDER BY id DESC",
+            (invoice_id,),
+        ).fetchall()
+        return jsonify({"success": True, "payments": [row_to_dict(r) for r in rows]})
 
     @app.errorhandler(404)
     def handle_404(_error):
