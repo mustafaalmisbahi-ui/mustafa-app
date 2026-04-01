@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MPP</title>
+  <style>
+    :root {
+      --bg: #eef2f4;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #5b6475;
+      --line: #d5dde4;
+      --primary: #0f766e;
+      --danger: #b91c1c;
+      --ok: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .topbar {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 10px;
+      padding-bottom: 120px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .title { margin: 0 0 8px; font-size: 18px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .grid2 { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+    .grid3 { display: grid; gap: 8px; grid-template-columns: 1fr 1fr 1fr; }
+    form { display: grid; gap: 8px; margin-top: 8px; }
+    input, select, button, textarea {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      width: 100%;
+      font: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    button { cursor: pointer; }
+    button.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    button.danger {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+    button.ghost { background: #fff; }
+    .tabs {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      margin-bottom: 10px;
+    }
+    .tab-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 8px;
+      font-size: 13px;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .list { display: grid; gap: 8px; }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fff;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      background: #e2e8f0;
+      display: inline-block;
+      margin-inline-start: 6px;
+    }
+    .stats {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .stat {
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+    #toast {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      color: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      display: none;
+      z-index: 200;
+      text-align: center;
+    }
+    #toast.ok { background: var(--ok); }
+    #toast.err { background: var(--danger); }
+    .hidden { display: none !important; }
+    @media (max-width: 780px) {
+      .grid2, .grid3, .tabs, .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span>MPP</span>
+    <span id="top-info" style="font-size:12px;opacity:.95">إعداد الاتصال مطلوب</span>
+  </div>
+
+  <div class="container">
+    <section id="setup-screen">
+      <div class="card">
+        <h2 class="title">إعداد الخادم</h2>
+        <p class="muted">أدخل رابط API (مثال: http://192.168.1.50:5000)</p>
+        <form id="base-url-form">
+          <input id="base-url-input" placeholder="http://IP:5000" required />
+          <div class="grid2">
+            <button class="ghost" id="test-connection-btn" type="button">اختبار الاتصال</button>
+            <button class="primary" type="submit">حفظ ومتابعة</button>
+          </div>
+        </form>
+        <p class="muted">ملاحظة: يجب أن يكون الهاتف والخادم على نفس الشبكة.</p>
+      </div>
+    </section>
+
+    <section id="login-screen" class="hidden">
+      <div class="card">
+        <h2 class="title">تسجيل دخول MPP API</h2>
+        <form id="login-form">
+          <input name="username" placeholder="اسم المستخدم" required />
+          <input name="password" type="password" placeholder="كلمة المرور" required />
+          <button class="primary" type="submit">دخول</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="app-screen" class="hidden">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="dashboard">الرئيسية</button>
+        <button class="tab-btn" data-tab="customers">العملاء</button>
+        <button class="tab-btn" data-tab="orders">الطلبات</button>
+        <button class="tab-btn" data-tab="more">المزيد</button>
+      </div>
+
+      <section id="dashboard" class="tab-view">
+        <div class="card">
+          <h3 class="title">لوحة المؤشرات</h3>
+          <div id="dashboard-stats" class="stats"></div>
+        </div>
+        <div class="card">
+          <h3 class="title">أحدث الطلبات</h3>
+          <div id="latest-orders" class="list"></div>
+        </div>
+      </section>
+
+      <section id="customers" class="tab-view hidden">
+        <div class="card">
+          <h3 class="title">إضافة عميل</h3>
+          <form id="customer-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم العميل" required />
+              <input name="phone" placeholder="الهاتف" />
+            </div>
+            <div class="grid2">
+              <input name="email" placeholder="البريد" />
+              <input name="company" placeholder="الشركة" />
+            </div>
+            <textarea name="notes" placeholder="ملاحظات"></textarea>
+            <button class="primary" type="submit">حفظ العميل</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="row">
+            <h3 class="title" style="margin:0">قائمة العملاء</h3>
+            <button class="ghost" id="refresh-customers-btn" type="button">تحديث</button>
+          </div>
+          <div id="customers-list" class="list"></div>
+        </div>
+      </section>
+
+      <section id="orders" class="tab-view hidden">
+        <div class="card">
+          <h3 class="title">إضافة طلب</h3>
+          <form id="order-form">
+            <select name="customer_id" id="order-customer-select" required></select>
+            <input name="title" placeholder="عنوان الطلب" required />
+            <div class="grid3">
+              <input name="quantity" type="number" min="1" placeholder="الكمية" required />
+              <input name="total_amount" type="number" step="0.01" placeholder="الإجمالي" required />
+              <select name="status">
+                <option value="pricing">التسعير</option>
+                <option value="design">التصميم</option>
+                <option value="paper_purchase">شراء الورق</option>
+                <option value="printing">الطباعة</option>
+                <option value="external_finishing">تشطيب خارجي</option>
+                <option value="internal_finishing">تشطيب داخلي</option>
+                <option value="quality_check">فحص الجودة</option>
+                <option value="ready_delivery">جاهز للتسليم</option>
+                <option value="delivered">تم التسليم</option>
+                <option value="cancelled">ملغي</option>
+              </select>
+            </div>
+            <button class="primary" type="submit">حفظ الطلب</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="row">
+            <h3 class="title" style="margin:0">قائمة الطلبات</h3>
+            <button class="ghost" id="refresh-orders-btn" type="button">تحديث</button>
+          </div>
+          <div id="orders-list" class="list"></div>
+        </div>
+      </section>
+
+      <section id="more" class="tab-view hidden">
+        <div class="card">
+          <h3 class="title">الموظفون</h3>
+          <form id="employee-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم الموظف" required />
+              <input name="email" placeholder="البريد" />
+            </div>
+            <select name="role">
+              <option value="user">مستخدم</option>
+              <option value="admin">مدير</option>
+              <option value="sales">مبيعات</option>
+              <option value="production">إنتاج</option>
+              <option value="designer">تصميم</option>
+              <option value="technician">فني</option>
+            </select>
+            <button class="primary" type="submit">إضافة موظف (مدير فقط)</button>
+          </form>
+          <div id="employees-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">الموردون</h3>
+          <form id="supplier-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم المورد" required />
+              <input name="phone" placeholder="الهاتف" />
+            </div>
+            <div class="grid2">
+              <input name="email" placeholder="البريد" />
+              <input name="supplier_type" placeholder="النوع (paper/ink/...)" />
+            </div>
+            <button class="primary" type="submit">إضافة مورد (مدير فقط)</button>
+          </form>
+          <div id="suppliers-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">المخزون</h3>
+          <form id="inventory-form">
+            <div class="grid2">
+              <input name="name" placeholder="اسم الصنف" required />
+              <input name="sku" placeholder="SKU" />
+            </div>
+            <div class="grid3">
+              <input name="category" placeholder="الفئة" />
+              <input name="unit" placeholder="الوحدة" />
+              <input name="quantity" type="number" placeholder="الكمية الابتدائية" />
+            </div>
+            <div class="grid2">
+              <input name="min_quantity" type="number" placeholder="حد أدنى" />
+              <input name="unit_cost" type="number" step="0.01" placeholder="تكلفة الوحدة" />
+            </div>
+            <button class="primary" type="submit">إضافة صنف (مدير فقط)</button>
+          </form>
+          <div id="inventory-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">الفواتير والمدفوعات</h3>
+          <form id="invoice-form">
+            <select name="customer_id" id="invoice-customer-select" required></select>
+            <div class="grid3">
+              <input name="subtotal" type="number" step="0.01" placeholder="المجموع الفرعي" required />
+              <input name="tax_amount" type="number" step="0.01" placeholder="الضريبة" required />
+              <input name="total" type="number" step="0.01" placeholder="الإجمالي" required />
+            </div>
+            <div class="grid2">
+              <select name="status">
+                <option value="draft">مسودة</option>
+                <option value="sent">مرسلة</option>
+                <option value="partial">مدفوعة جزئيا</option>
+                <option value="paid">مدفوعة</option>
+                <option value="overdue">متأخرة</option>
+                <option value="cancelled">ملغية</option>
+              </select>
+              <input name="due_date" placeholder="تاريخ الاستحقاق YYYY-MM-DD" />
+            </div>
+            <button class="primary" type="submit">إنشاء فاتورة</button>
+          </form>
+          <div id="invoices-list" class="list"></div>
+        </div>
+      </section>
+
+      <div class="card">
+        <div class="grid2">
+          <button class="ghost" id="reload-all-btn" type="button">تحديث كل البيانات</button>
+          <button class="danger" id="logout-btn" type="button">تسجيل خروج</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const KEY = "mpp_mobile_api_v1";
+    const state = Object.assign(
+      {
+        baseUrl: "",
+        token: "",
+        user: null,
+        customers: [],
+        orders: [],
+        employees: [],
+        suppliers: [],
+        inventory: [],
+        invoices: [],
+        stats: null,
+        latestOrders: [],
+      },
+      JSON.parse(localStorage.getItem(KEY) || "{}")
+    );
+
+    const byId = (id) => document.getElementById(id);
+    const saveState = () => localStorage.setItem(KEY, JSON.stringify(state));
+    const esc = (v) =>
+      String(v == null ? "" : v)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+    function toast(message, ok = true) {
+      const el = byId("toast");
+      el.textContent = message;
+      el.className = ok ? "ok" : "err";
+      el.style.display = "block";
+      setTimeout(() => (el.style.display = "none"), 2600);
+    }
+
+    function normalizeBaseUrl(url) {
+      return String(url || "").trim().replace(/\/+$/, "");
+    }
+
+    function setTopInfo() {
+      if (!state.baseUrl) {
+        byId("top-info").textContent = "إعداد الاتصال مطلوب";
+        return;
+      }
+      const userText = state.user ? ` | ${state.user.full_name} (${state.user.role})` : "";
+      byId("top-info").textContent = `${state.baseUrl}${userText}`;
+    }
+
+    function showScreen(mode) {
+      byId("setup-screen").classList.toggle("hidden", mode !== "setup");
+      byId("login-screen").classList.toggle("hidden", mode !== "login");
+      byId("app-screen").classList.toggle("hidden", mode !== "app");
+    }
+
+    async function api(path, options = {}) {
+      if (!state.baseUrl) throw new Error("لم يتم ضبط رابط الخادم");
+      const headers = Object.assign(
+        { "Content-Type": "application/json" },
+        options.headers || {}
+      );
+      if (state.token) headers.Authorization = `Bearer ${state.token}`;
+
+      const response = await fetch(`${state.baseUrl}${path}`, {
+        method: options.method || "GET",
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success === false) {
+        const msg = payload.error || `HTTP ${response.status}`;
+        throw new Error(msg);
+      }
+      return payload;
+    }
+
+    async function testConnection() {
+      const url = normalizeBaseUrl(byId("base-url-input").value);
+      if (!url) {
+        toast("أدخل رابط الخادم", false);
+        return;
+      }
+      try {
+        const res = await fetch(`${url}/api/health`);
+        const data = await res.json();
+        if (!res.ok || data.status !== "ok") {
+          throw new Error("فشل الاختبار");
+        }
+        toast("الاتصال ناجح");
+      } catch (_err) {
+        toast("تعذر الوصول للخادم", false);
+      }
+    }
+
+    async function loadDashboard() {
+      const data = await api("/api/dashboard");
+      state.stats = data.stats || {};
+      state.latestOrders = data.latest_orders || [];
+      renderDashboard();
+      saveState();
+    }
+
+    async function loadAllLists() {
+      const [customers, orders, employees, suppliers, inventory, invoices] = await Promise.all([
+        api("/api/customers"),
+        api("/api/orders"),
+        api("/api/employees"),
+        api("/api/suppliers"),
+        api("/api/inventory"),
+        api("/api/invoices"),
+      ]);
+      state.customers = customers.customers || [];
+      state.orders = orders.orders || [];
+      state.employees = employees.employees || [];
+      state.suppliers = suppliers.suppliers || [];
+      state.inventory = inventory.items || [];
+      state.invoices = invoices.invoices || [];
+      saveState();
+      renderAllLists();
+    }
+
+    function fillCustomerSelects() {
+      const options = state.customers
+        .map((c) => `<option value="${c.id}">${esc(c.name)} (#${c.id})</option>`)
+        .join("");
+      byId("order-customer-select").innerHTML = options || "<option value=''>لا يوجد عملاء</option>";
+      byId("invoice-customer-select").innerHTML = options || "<option value=''>لا يوجد عملاء</option>";
+    }
+
+    function renderDashboard() {
+      const s = state.stats || {};
+      const statsItems = [
+        ["العملاء", s.customers || 0],
+        ["الطلبات", s.orders || 0],
+        ["الموظفون", s.employees || 0],
+        ["الإيراد", s.revenue || 0],
+        ["الموردون", s.suppliers || 0],
+        ["أصناف المخزون", s.inventory_items || 0],
+        ["منخفض المخزون", s.low_stock_items || 0],
+        ["الفواتير", s.invoices || 0],
+        ["فواتير معلقة", s.pending_invoices || 0],
+      ];
+      byId("dashboard-stats").innerHTML = statsItems
+        .map(([k, v]) => `<div class="stat"><div class="muted">${esc(k)}</div><strong>${esc(v)}</strong></div>`)
+        .join("");
+
+      byId("latest-orders").innerHTML = state.latestOrders.length
+        ? state.latestOrders
+            .map(
+              (o) =>
+                `<div class="item"><div><strong>${esc(o.order_no)}</strong> - ${esc(o.title)}</div><div class="muted">${esc(
+                  o.customer_name
+                )} | ${esc(o.status)} | ${esc(o.total_amount)}</div></div>`
+            )
+            .join("")
+        : "<div class='muted'>لا توجد طلبات حديثة</div>";
+    }
+
+    function renderCustomers() {
+      const el = byId("customers-list");
+      if (!state.customers.length) {
+        el.innerHTML = "<div class='muted'>لا يوجد عملاء</div>";
+        return;
+      }
+      el.innerHTML = state.customers
+        .map(
+          (c) => `
+            <div class="item">
+              <div class="row">
+                <div>
+                  <strong>${esc(c.name)}</strong>
+                  <div class="muted">${esc(c.phone || "-")} | ${esc(c.company || "-")}</div>
+                </div>
+                <button class="danger" data-del-customer="${c.id}" type="button">حذف</button>
+              </div>
+            </div>`
+        )
+        .join("");
+    }
+
+    function renderOrders() {
+      const el = byId("orders-list");
+      if (!state.orders.length) {
+        el.innerHTML = "<div class='muted'>لا يوجد طلبات</div>";
+        return;
+      }
+      el.innerHTML = state.orders
+        .map(
+          (o) => `
+            <div class="item">
+              <div><strong>${esc(o.order_no)}</strong> - ${esc(o.title)} <span class="badge">${esc(o.status)}</span></div>
+              <div class="muted">${esc(o.customer_name)} | كمية: ${esc(o.quantity)} | مبلغ: ${esc(o.total_amount)}</div>
+              <div class="grid2" style="margin-top:8px">
+                <select data-order-status="${o.id}">
+                  ${[
+                    "pricing",
+                    "design",
+                    "paper_purchase",
+                    "printing",
+                    "external_finishing",
+                    "internal_finishing",
+                    "quality_check",
+                    "ready_delivery",
+                    "delivered",
+                    "cancelled",
+                  ]
+                    .map((s) => `<option value="${s}" ${o.status === s ? "selected" : ""}>${s}</option>`)
+                    .join("")}
+                </select>
+                <button class="primary" data-save-order-status="${o.id}" type="button">تحديث الحالة</button>
+              </div>
+            </div>`
+        )
+        .join("");
+    }
+
+    function renderEmployees() {
+      byId("employees-list").innerHTML = state.employees.length
+        ? state.employees
+            .map(
+              (e) =>
+                `<div class="item"><strong>${esc(e.name)}</strong> <span class="badge">${esc(
+                  e.role
+                )}</span> <span class="badge">${e.active ? "نشط" : "معطل"}</span></div>`
+            )
+            .join("")
+        : "<div class='muted'>لا يوجد موظفون</div>";
+    }
+
+    function renderSuppliers() {
+      byId("suppliers-list").innerHTML = state.suppliers.length
+        ? state.suppliers
+            .map(
+              (s) =>
+                `<div class="item"><strong>${esc(s.name)}</strong> <span class="badge">${esc(
+                  s.supplier_type || "other"
+                )}</span><div class="muted">${esc(s.phone || "-")} | ${esc(s.email || "-")}</div></div>`
+            )
+            .join("")
+        : "<div class='muted'>لا يوجد موردون</div>";
+    }
+
+    function renderInventory() {
+      byId("inventory-list").innerHTML = state.inventory.length
+        ? state.inventory
+            .map(
+              (i) => `
+                <div class="item">
+                  <div><strong>${esc(i.name)}</strong> <span class="badge">${esc(i.sku || "-")}</span></div>
+                  <div class="muted">المخزون: ${esc(i.quantity)} | الحد الأدنى: ${esc(i.min_quantity)} | ${esc(i.unit || "")}</div>
+                  <div class="grid2" style="margin-top:8px">
+                    <button class="ghost" type="button" data-stock-in="${i.id}">+ إدخال 1</button>
+                    <button class="ghost" type="button" data-stock-out="${i.id}">- إخراج 1</button>
+                  </div>
+                </div>`
+            )
+            .join("")
+        : "<div class='muted'>لا توجد أصناف</div>";
+    }
+
+    function renderInvoices() {
+      byId("invoices-list").innerHTML = state.invoices.length
+        ? state.invoices
+            .map(
+              (i) => `
+                <div class="item">
+                  <div><strong>${esc(i.invoice_no)}</strong> <span class="badge">${esc(i.status)}</span></div>
+                  <div class="muted">${esc(i.customer_name)} | الإجمالي: ${esc(i.total)} | المدفوع: ${esc(i.paid_amount)}</div>
+                  <form data-pay-form="${i.id}" class="grid2" style="margin-top:8px">
+                    <input name="amount" type="number" step="0.01" min="0.01" placeholder="دفعة" required />
+                    <button class="primary" type="submit">إضافة دفعة</button>
+                  </form>
+                </div>`
+            )
+            .join("")
+        : "<div class='muted'>لا توجد فواتير</div>";
+    }
+
+    function renderAllLists() {
+      fillCustomerSelects();
+      renderCustomers();
+      renderOrders();
+      renderEmployees();
+      renderSuppliers();
+      renderInventory();
+      renderInvoices();
+    }
+
+    function bindTabs() {
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tab = btn.getAttribute("data-tab");
+          document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.querySelectorAll(".tab-view").forEach((v) => v.classList.add("hidden"));
+          byId(tab).classList.remove("hidden");
+        });
+      });
+    }
+
+    async function bootstrapAfterLogin() {
+      await Promise.all([loadDashboard(), loadAllLists()]);
+      showScreen("app");
+      setTopInfo();
+      toast("تم تسجيل الدخول");
+    }
+
+    byId("test-connection-btn").addEventListener("click", testConnection);
+
+    byId("base-url-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const baseUrl = normalizeBaseUrl(byId("base-url-input").value);
+      if (!baseUrl) {
+        toast("الرابط مطلوب", false);
+        return;
+      }
+      state.baseUrl = baseUrl;
+      saveState();
+      setTopInfo();
+      toast("تم حفظ رابط الخادم");
+      showScreen("login");
+    });
+
+    byId("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        const payload = await api("/api/auth/login", {
+          method: "POST",
+          body: {
+            username: String(data.get("username") || "").trim(),
+            password: String(data.get("password") || ""),
+          },
+        });
+        state.token = payload.token;
+        state.user = payload.user;
+        saveState();
+        await bootstrapAfterLogin();
+      } catch (err) {
+        toast(`فشل الدخول: ${err.message}`, false);
+      }
+    });
+
+    byId("customer-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/customers", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            phone: String(data.get("phone") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+            company: String(data.get("company") || "").trim(),
+            notes: String(data.get("notes") || "").trim(),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة العميل");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("customers-list").addEventListener("click", async (e) => {
+      const id = e.target.getAttribute("data-del-customer");
+      if (!id) return;
+      try {
+        await api(`/api/customers/${id}`, { method: "DELETE" });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم حذف العميل");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("order-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/orders", {
+          method: "POST",
+          body: {
+            customer_id: Number(data.get("customer_id")),
+            title: String(data.get("title") || "").trim(),
+            quantity: Number(data.get("quantity") || 0),
+            total_amount: Number(data.get("total_amount") || 0),
+            status: String(data.get("status") || "pricing"),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم إنشاء الطلب");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("orders-list").addEventListener("click", async (e) => {
+      const id = e.target.getAttribute("data-save-order-status");
+      if (!id) return;
+      const select = document.querySelector(`[data-order-status="${id}"]`);
+      try {
+        await api(`/api/orders/${id}/status`, {
+          method: "PATCH",
+          body: { status: select.value },
+        });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم تحديث الحالة");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("employee-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/employees", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+            role: String(data.get("role") || "user"),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        toast("تمت إضافة الموظف");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("supplier-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/suppliers", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            phone: String(data.get("phone") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+            supplier_type: String(data.get("supplier_type") || "other").trim() || "other",
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة المورد");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("inventory-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/inventory", {
+          method: "POST",
+          body: {
+            name: String(data.get("name") || "").trim(),
+            sku: String(data.get("sku") || "").trim(),
+            category: String(data.get("category") || "other").trim() || "other",
+            unit: String(data.get("unit") || "piece").trim() || "piece",
+            quantity: Number(data.get("quantity") || 0),
+            min_quantity: Number(data.get("min_quantity") || 0),
+            unit_cost: Number(data.get("unit_cost") || 0),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة الصنف");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("inventory-list").addEventListener("click", async (e) => {
+      const plusId = e.target.getAttribute("data-stock-in");
+      const minusId = e.target.getAttribute("data-stock-out");
+      const id = plusId || minusId;
+      if (!id) return;
+      const movement = plusId ? "in" : "out";
+      try {
+        await api(`/api/inventory/${id}/movement`, {
+          method: "POST",
+          body: { movement_type: movement, quantity: 1, reason: "mobile quick action" },
+        });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم تسجيل حركة المخزون");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("invoice-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api("/api/invoices", {
+          method: "POST",
+          body: {
+            customer_id: Number(data.get("customer_id")),
+            subtotal: Number(data.get("subtotal") || 0),
+            tax_amount: Number(data.get("tax_amount") || 0),
+            total: Number(data.get("total") || 0),
+            status: String(data.get("status") || "draft"),
+            due_date: String(data.get("due_date") || "").trim(),
+          },
+        });
+        e.target.reset();
+        await loadAllLists();
+        await loadDashboard();
+        toast("تم إنشاء الفاتورة");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("invoices-list").addEventListener("submit", async (e) => {
+      const invoiceId = e.target.getAttribute("data-pay-form");
+      if (!invoiceId) return;
+      e.preventDefault();
+      const data = new FormData(e.target);
+      try {
+        await api(`/api/invoices/${invoiceId}/payments`, {
+          method: "POST",
+          body: {
+            amount: Number(data.get("amount") || 0),
+            payment_method: "cash",
+          },
+        });
+        await loadAllLists();
+        await loadDashboard();
+        toast("تمت إضافة الدفعة");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("reload-all-btn").addEventListener("click", async () => {
+      try {
+        await Promise.all([loadDashboard(), loadAllLists()]);
+        toast("تم تحديث البيانات");
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("refresh-customers-btn").addEventListener("click", async () => {
+      try {
+        const res = await api("/api/customers");
+        state.customers = res.customers || [];
+        saveState();
+        renderCustomers();
+        fillCustomerSelects();
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("refresh-orders-btn").addEventListener("click", async () => {
+      try {
+        const res = await api("/api/orders");
+        state.orders = res.orders || [];
+        saveState();
+        renderOrders();
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+
+    byId("logout-btn").addEventListener("click", async () => {
+      try {
+        if (state.token) {
+          await api("/api/auth/logout", { method: "POST" });
+        }
+      } catch (_err) {
+      } finally {
+        state.token = "";
+        state.user = null;
+        saveState();
+        setTopInfo();
+        showScreen("login");
+        toast("تم تسجيل الخروج");
+      }
+    });
+
+    function init() {
+      bindTabs();
+      byId("base-url-input").value = state.baseUrl || "";
+      setTopInfo();
+
+      if (!state.baseUrl) {
+        showScreen("setup");
+        return;
+      }
+      if (!state.token) {
+        showScreen("login");
+        return;
+      }
+
+      showScreen("app");
+      renderAllLists();
+      renderDashboard();
+      bootstrapAfterLogin().catch((err) => {
+        toast(`انتهت الجلسة: ${err.message}`, false);
+        state.token = "";
+        state.user = null;
+        saveState();
+        showScreen("login");
+        setTopInfo();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
