@@ -2,6 +2,7 @@ package com.daftar.munazzam;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.webkit.WebResourceError;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
@@ -33,9 +34,16 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return false;
             }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request != null && request.isForMainFrame()) {
+                    view.loadUrl("file:///android_asset/index.html");
+                }
+            }
         });
 
-        webView.loadUrl("https://c444b19ce44945.lhr.life");
+        webView.loadUrl("file:///android_asset/index.html");
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override

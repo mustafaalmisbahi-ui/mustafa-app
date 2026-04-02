@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>دفتر الحسابات المنتظم</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .mobile-shell {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .entity-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 0.7rem;
+      padding: 0.8rem;
+      margin-bottom: 0.7rem;
+      background: #fff;
+    }
+    .entity-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0 0 0.25rem;
+    }
+    .entity-sub {
+      color: var(--muted);
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    .stat-chip {
+      display: inline-block;
+      padding: 0.2rem 0.45rem;
+      border-radius: 0.6rem;
+      background: #e7efff;
+      color: #1e4fc7;
+      font-size: 0.78rem;
+      margin-inline-start: 0.35rem;
+    }
+    .fab {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--primary);
+      color: #fff;
+      font-size: 1.8rem;
+      box-shadow: 0 6px 18px rgba(30, 79, 199, 0.4);
+    }
+    dialog {
+      border: 0;
+      border-radius: 0.8rem;
+      width: min(92vw, 520px);
+      padding: 0;
+    }
+    .dialog-body {
+      padding: 1rem;
+    }
+    .dialog-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 1rem;
+      font-weight: 700;
+    }
+    .dialog-close {
+      background: transparent;
+      color: #111827;
+      font-size: 1.2rem;
+      padding: 0.1rem 0.4rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container mobile-shell">
+      <h1 class="brand">
+        <img src="img/logo.svg" alt="logo" class="brand-logo">
+        <span>دفتر الحسابات المنتظم</span>
+      </h1>
+    </div>
+  </header>
+
+  <main class="container mobile-shell">
+    <section class="card">
+      <h2 class="table-title">العملاء</h2>
+      <p class="muted">الواجهة الرئيسية للعملاء مع زر إضافة مباشر.</p>
+      <div class="top-actions">
+        <button id="openAddCustomer" class="btn">+ إضافة عميل</button>
+      </div>
+      <div id="customersList"></div>
+    </section>
+  </main>
+
+  <button id="fab" class="fab" title="إضافة عميل">+</button>
+
+  <dialog id="customerDialog">
+    <div class="dialog-head">
+      <span>إضافة عميل جديد</span>
+      <button type="button" id="closeDialog" class="dialog-close">×</button>
+    </div>
+    <div class="dialog-body">
+      <form id="customerForm" class="form-grid">
+        <label>
+          اسم العميل
+          <input type="text" id="name" required>
+        </label>
+        <label>
+          الهاتف
+          <input type="text" id="phone" placeholder="اختياري">
+        </label>
+        <label>
+          الرصيد الافتتاحي
+          <input type="number" id="openingBalance" min="0" step="0.01" value="0">
+        </label>
+        <label class="full-width">
+          ملاحظات
+          <input type="text" id="note" placeholder="اختياري">
+        </label>
+        <button type="submit">حفظ العميل</button>
+      </form>
+    </div>
+  </dialog>
+
+  <script src="js/main.js"></script>
+  <script>
+    const STORAGE_KEY = "daftar_customers_v1";
+    const list = document.getElementById("customersList");
+    const dialog = document.getElementById("customerDialog");
+    const form = document.getElementById("customerForm");
+    const openBtn = document.getElementById("openAddCustomer");
+    const fabBtn = document.getElementById("fab");
+    const closeBtn = document.getElementById("closeDialog");
+
+    function loadCustomers() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveCustomers(rows) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    }
+
+    function renderCustomers() {
+      const rows = loadCustomers();
+      if (!rows.length) {
+        list.innerHTML = '<p class="muted">لا يوجد عملاء بعد. اضغط زر + لإضافة أول عميل.</p>';
+        return;
+      }
+
+      list.innerHTML = rows
+        .map((c, i) => {
+          const openBalance = Number(c.openingBalance || 0).toFixed(2);
+          return `
+            <article class="entity-card">
+              <div>
+                <p class="entity-title">${c.name}</p>
+                <p class="entity-sub">
+                  ${c.phone || "بدون هاتف"}
+                  <span class="stat-chip">الرصيد ${openBalance}</span>
+                </p>
+              </div>
+              <button class="btn" data-i="${i}" data-action="delete">حذف</button>
+            </article>
+          `;
+        })
+        .join("");
+    }
+
+    function openDialog() {
+      if (typeof dialog.showModal === "function") {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute("open", "open");
+      }
+    }
+
+    function closeDialog() {
+      if (typeof dialog.close === "function") {
+        dialog.close();
+      } else {
+        dialog.removeAttribute("open");
+      }
+      form.reset();
+      document.getElementById("openingBalance").value = "0";
+    }
+
+    openBtn.addEventListener("click", openDialog);
+    fabBtn.addEventListener("click", openDialog);
+    closeBtn.addEventListener("click", closeDialog);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const rows = loadCustomers();
+      rows.unshift({
+        name: document.getElementById("name").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        openingBalance: document.getElementById("openingBalance").value || "0",
+        note: document.getElementById("note").value.trim(),
+        createdAt: new Date().toISOString()
+      });
+      saveCustomers(rows);
+      renderCustomers();
+      closeDialog();
+    });
+
+    list.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action='delete']");
+      if (!btn) return;
+      const i = Number(btn.getAttribute("data-i"));
+      const rows = loadCustomers();
+      rows.splice(i, 1);
+      saveCustomers(rows);
+      renderCustomers();
+    });
+
+    renderCustomers();
+  </script>
+</body>
+</html>
