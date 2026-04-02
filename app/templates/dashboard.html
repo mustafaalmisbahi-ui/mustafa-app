@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}لوحة التحكم{% endblock %}
+
+{% block content %}
+<section class="card-grid">
+    <article class="card">
+        <h3>إجمالي المبيعات</h3>
+        <p class="metric">{{ "%.2f"|format(metrics.total_sales) }}</p>
+    </article>
+    <article class="card">
+        <h3>إجمالي المشتريات</h3>
+        <p class="metric">{{ "%.2f"|format(metrics.total_purchases) }}</p>
+    </article>
+    <article class="card">
+        <h3>صافي الربح/الخسارة</h3>
+        <p class="metric {% if metrics.net_profit >= 0 %}metric-profit{% else %}metric-loss{% endif %}">
+            {{ "%.2f"|format(metrics.net_profit) }}
+        </p>
+    </article>
+    <article class="card">
+        <h3>إجمالي ديون العملاء</h3>
+        <p class="metric">{{ "%.2f"|format(debt_totals.customer_total) }}</p>
+    </article>
+    <article class="card">
+        <h3>إجمالي ديون الموردين</h3>
+        <p class="metric">{{ "%.2f"|format(debt_totals.supplier_total) }}</p>
+    </article>
+    <article class="card">
+        <h3>إجمالي الديون المفتوحة</h3>
+        <p class="metric">{{ "%.2f"|format(debt_totals.total_open) }}</p>
+    </article>
+</section>
+
+<section class="form-section">
+    <h2>آخر العمليات</h2>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>النوع</th>
+                    <th>الاسم</th>
+                    <th>القيمة</th>
+                    <th>المدفوع</th>
+                    <th>المتبقي</th>
+                    <th>التاريخ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in recent_sales %}
+                <tr>
+                    <td>بيع</td>
+                    <td>{{ sale.customer_name }}</td>
+                    <td>{{ "%.2f"|format(sale.amount) }}</td>
+                    <td>{{ "%.2f"|format(sale.paid_amount) }}</td>
+                    <td>{{ "%.2f"|format(sale.remaining) }}</td>
+                    <td>{{ sale.created_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% endfor %}
+                {% for purchase in recent_purchases %}
+                <tr>
+                    <td>شراء</td>
+                    <td>{{ purchase.supplier_name }}</td>
+                    <td>{{ "%.2f"|format(purchase.amount) }}</td>
+                    <td>{{ "%.2f"|format(purchase.paid_amount) }}</td>
+                    <td>{{ "%.2f"|format(purchase.remaining) }}</td>
+                    <td>{{ purchase.created_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% endfor %}
+                {% if not recent_sales and not recent_purchases %}
+                <tr>
+                    <td colspan="6">لا توجد عمليات بعد.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

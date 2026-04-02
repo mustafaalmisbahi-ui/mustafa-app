@@ -1,27 +1,91 @@
-# مشروع تطبيق محاسبة بلغة بايثون فلاسكلغة
+# دفتر الحسابات المنتظم
 
-هذا المشروع هو تطبيق محاسبة بلغة بايثون باستخدام فلاسكلغة. يتضمن التطبيق هيكلية مرنة وقابلة للتوسع لتناسب احتياجات المحاسبة.
+هيكل أولي لتطبيق **دفتر الحسابات المنتظم** باللغة العربية باستخدام Python و Flask، مع واجهة تدعم اتجاه الكتابة من اليمين إلى اليسار (RTL).
+
+## الميزات المتوفرة في هذه النسخة
+
+- واجهة سهلة لإدخال:
+  - المبيعات
+  - المشتريات
+  - الديون (عملاء/موردون)
+- بحث متقدم في السجلات حسب:
+  - الكلمة المفتاحية
+  - التاريخ (من/إلى)
+  - نطاق المبلغ
+  - نوع السجل (مبيعات/مشتريات/ديون)
+- لوحة تحكم تعرض:
+  - إجمالي المبيعات
+  - إجمالي المشتريات
+  - صافي الربح/الخسارة
+  - ملخص الديون
+- تصدير CSV لصفحات:
+  - المبيعات
+  - المشتريات
+  - الديون
+  - ملخص لوحة التحكم
+- نسخ احتياطي واسترجاع:
+  - تصدير نسخة JSON شاملة
+  - استرجاع النسخة بصيغة JSON
+  - اختيار وضع الاستيراد (إضافة/استبدال)
+  - إنشاء نسخة أمان تلقائية قبل أي استرجاع
+- تحسين عرض السجلات:
+  - إخفاء السجلات المسددة بالكامل افتراضيًا
+  - زر "إظهار المسدد" لكل من المبيعات/المشتريات/الديون
+- صفحة تقارير بسيطة قابلة للطباعة.
+
+## هيكل المشروع
+
+```text
+.
+├── app.py
+├── config.py
+├── requirements.txt
+└── app
+    ├── __init__.py
+    ├── extensions.py
+    ├── services.py
+    ├── models
+    │   ├── __init__.py
+    │   ├── debts.py
+    │   └── entries.py
+    ├── routes
+    │   ├── __init__.py
+    │   └── web.py
+    ├── static
+    │   ├── css/style.css
+    │   └── js/main.js
+    └── templates
+        ├── base.html
+        ├── dashboard.html
+        ├── sales.html
+        ├── purchases.html
+        ├── debts.html
+        └── reports.html
+```
 
 ## المتطلبات
-- بايثون 3.6 أو أحدث
-- مكتبة فلاسكلغة
-- مكتبة SQLAlchemy للرابط قاعدة البيانات
 
-## كيفية التشغيل
-1. تأكد من تثبيت المتطلبات.
-2. شغل التطبيق باستخدام `python app.py`.
+- Python 3.10+
+- pip
 
----
+## طريقة التشغيل
 
-# Python Flask Accounting Application
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
 
-This project is an accounting application built with Python using Flask. The application has a flexible and scalable structure to meet accounting needs.
+بعد التشغيل، افتح:
 
-## Requirements
-- Python 3.6 or higher
-- Flask library
-- SQLAlchemy for database connection
+`http://127.0.0.1:5000`
 
-## How to run
-1. Ensure all dependencies are installed.
-2. Run the application using `python app.py`.
+## ملاحظات
+
+- قاعدة البيانات الافتراضية: SQLite (`instance/accounting.db`).
+- تم إعداد الجداول تلقائيًا عند التشغيل الأول.
+- هذه النسخة تمثل **هيكلًا جاهزًا للتطوير** ويمكن توسيعها لاحقًا بإضافة:
+  - نظام مستخدمين وصلاحيات
+  - ترحيل قواعد البيانات (Alembic/Flask-Migrate)
+  - تقارير مالية أكثر تفصيلًا.
